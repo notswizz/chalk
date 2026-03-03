@@ -1,26 +1,610 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --board-dark: #1a2a1a;
+  --board-medium: #243524;
+  --board-light: #2d4230;
+  --chalk-white: #e8e4d9;
+  --chalk-dim: #a8a494;
+  --chalk-ghost: #6b6860;
+  --color-yellow: #f5d960;
+  --color-red: #e85d5d;
+  --color-blue: #5d9be8;
+  --color-green: #5de88a;
+  --color-orange: #e8a85d;
+  --dust-light: rgba(232, 228, 217, 0.08);
+  --dust-medium: rgba(232, 228, 217, 0.15);
+  --dust-heavy: rgba(232, 228, 217, 0.25);
+
+  --background: var(--board-dark);
+  --foreground: var(--chalk-white);
+  --card: var(--board-medium);
+  --card-hover: var(--board-light);
+  --border: var(--dust-light);
+  --border-bright: var(--dust-medium);
+  --accent: var(--color-yellow);
+  --accent-glow: rgba(245, 217, 96, 0.15);
+  --live: var(--color-yellow);
+  --live-glow: rgba(245, 217, 96, 0.2);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-chalk-body);
+  --font-mono: var(--font-chalk-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--board-dark);
+  color: var(--chalk-white);
+  font-family: var(--font-chalk-body), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Chalkboard base + photo texture ─── */
+.chalkboard {
+  background:
+    linear-gradient(rgba(20, 30, 20, 0.7), rgba(20, 30, 20, 0.7)),
+    url('/chalkboard.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Layer 1: Fine grain noise */
+.chalkboard-texture {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 512px 512px, 256px 256px;
+}
+
+/* Layer 2: Chalk dust particles — subtle floating dust */
+.chalkboard::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 15% 25%, rgba(232, 228, 217, 0.12) 50%, transparent 50%),
+    radial-gradient(1px 1px at 45% 65%, rgba(232, 228, 217, 0.08) 50%, transparent 50%),
+    radial-gradient(2px 2px at 75% 15%, rgba(232, 228, 217, 0.06) 50%, transparent 50%),
+    radial-gradient(1px 1px at 85% 75%, rgba(232, 228, 217, 0.10) 50%, transparent 50%),
+    radial-gradient(1px 1px at 25% 85%, rgba(232, 228, 217, 0.07) 50%, transparent 50%),
+    radial-gradient(2px 2px at 55% 35%, rgba(232, 228, 217, 0.05) 50%, transparent 50%),
+    radial-gradient(1px 1px at 95% 45%, rgba(232, 228, 217, 0.09) 50%, transparent 50%);
+  background-size: 200px 200px;
+}
+
+/* Scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.page-content {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* ─── Chalk card ─── */
+.chalk-card {
+  background: rgba(45, 66, 48, 0.65);
+  border: 1.5px dashed rgba(232, 228, 217, 0.18);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 4px rgba(0, 0, 0, 0.2),
+    0 1px 0 rgba(232, 228, 217, 0.03);
+  backdrop-filter: blur(2px);
+}
+
+/* ─── Chalk divider — uneven opacity like real chalk strokes ─── */
+.chalk-divider {
+  height: 1.5px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(168, 164, 148, 0.5) 0px,
+    rgba(168, 164, 148, 0.3) 4px,
+    transparent 4px,
+    transparent 7px,
+    rgba(168, 164, 148, 0.4) 7px,
+    rgba(168, 164, 148, 0.15) 12px,
+    transparent 12px,
+    transparent 14px,
+    rgba(168, 164, 148, 0.6) 14px,
+    rgba(168, 164, 148, 0.2) 20px,
+    transparent 20px,
+    transparent 22px
+  );
+}
+
+/* Chalk stroke border-top utility */
+.chalk-stroke-top {
+  border-top: none;
+  position: relative;
+}
+.chalk-stroke-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(168, 164, 148, 0.4) 0px,
+    rgba(168, 164, 148, 0.2) 5px,
+    transparent 5px,
+    transparent 8px,
+    rgba(168, 164, 148, 0.35) 8px,
+    rgba(168, 164, 148, 0.1) 14px,
+    transparent 14px,
+    transparent 16px
+  );
+}
+
+/* ─── Chalk text effects ─── */
+.chalk-text {
+  text-shadow:
+    0 0 10px rgba(232, 228, 217, 0.2),
+    0 0 2px rgba(232, 228, 217, 0.1);
+  letter-spacing: 0.02em;
+}
+
+.chalk-text-glow {
+  text-shadow:
+    0 0 16px rgba(245, 217, 96, 0.35),
+    0 0 6px rgba(232, 228, 217, 0.25),
+    0 0 2px rgba(245, 217, 96, 0.15);
+}
+
+/* Chalk score — big hand-written scores */
+.chalk-score {
+  font-family: var(--font-chalk-header);
+  text-shadow:
+    0 0 12px rgba(232, 228, 217, 0.25),
+    1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 3px rgba(232, 228, 217, 0.1);
+  letter-spacing: 0.03em;
+}
+
+/* Chalk header text */
+.chalk-header {
+  font-family: var(--font-chalk-header);
+  text-shadow:
+    0 0 8px rgba(232, 228, 217, 0.15),
+    0 0 2px rgba(232, 228, 217, 0.08);
+}
+
+/* ─── Hand-drawn probability bar ─── */
+.prob-bar-container {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  overflow: visible;
+}
+
+.prob-bar-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: rgba(232, 228, 217, 0.06);
+  border: 1px dashed rgba(232, 228, 217, 0.08);
+}
+
+.prob-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.7s ease;
+}
+
+/* Hand-drawn rough edge on the bar using clip-path */
+.prob-bar-fill-away {
+  left: 0;
+  clip-path: polygon(
+    0% 10%, 8% 0%, 20% 15%, 35% 0%, 50% 8%,
+    65% 0%, 80% 12%, 92% 0%, 100% 20%,
+    100% 85%, 93% 100%, 78% 88%, 62% 100%,
+    48% 90%, 33% 100%, 18% 85%, 5% 100%, 0% 90%
+  );
+}
+
+.prob-bar-fill-home {
+  right: 0;
+  clip-path: polygon(
+    0% 20%, 8% 0%, 22% 12%, 35% 0%, 50% 8%,
+    65% 0%, 80% 15%, 92% 0%, 100% 10%,
+    100% 90%, 95% 100%, 82% 85%, 67% 100%,
+    52% 90%, 38% 100%, 22% 88%, 7% 100%, 0% 85%
+  );
+}
+
+/* ─── Live pulse ring — yellow ─── */
+@keyframes live-ring {
+  0% { box-shadow: 0 0 0 0 rgba(245, 217, 96, 0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(245, 217, 96, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 217, 96, 0); }
+}
+
+.live-ring {
+  animation: live-ring 1.5s ease-out infinite;
+}
+
+/* ─── Chalk write animation ─── */
+@keyframes chalk-write {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateX(-4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateX(0);
+  }
+}
+
+.chalk-write {
+  background: linear-gradient(90deg, var(--board-medium) 25%, var(--dust-light) 50%, var(--board-medium) 75%);
+  background-size: 200% 100%;
+  animation: shimmer-chalk 1.8s ease-in-out infinite;
+}
+
+@keyframes shimmer-chalk {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--board-medium) 25%, rgba(232, 228, 217, 0.06) 50%, var(--board-medium) 75%);
+  background-size: 200% 100%;
+  animation: shimmer-chalk 1.8s ease-in-out infinite;
+}
+
+/* ─── Card hover glow — chalk dust highlight ─── */
+.card-glow {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.card-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, transparent 40%, rgba(245, 217, 96, 0.12) 100%);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.card-glow:hover::before {
+  opacity: 1;
+}
+
+.card-glow:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(245, 217, 96, 0.04);
+}
+
+/* ─── Live card left border glow ─── */
+.live-card {
+  border-left: 2px solid var(--color-yellow);
+  box-shadow:
+    -4px 0 16px var(--live-glow),
+    inset 0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Section header ─── */
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  font-family: var(--font-chalk-header);
+  text-shadow: 0 0 6px rgba(232, 228, 217, 0.1);
+}
+
+/* ─── Chalk button — outlined, not filled ─── */
+.chalk-btn {
+  background: transparent;
+  border: 1.5px dashed var(--dust-medium);
+  color: var(--chalk-dim);
+  font-family: var(--font-chalk-body);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.chalk-btn:hover {
+  border-color: rgba(245, 217, 96, 0.3);
+  color: var(--color-yellow);
+  text-shadow: 0 0 8px rgba(245, 217, 96, 0.2);
+}
+
+.chalk-btn-accent {
+  border-color: rgba(245, 217, 96, 0.25);
+  color: var(--color-yellow);
+}
+
+.chalk-btn-accent:hover {
+  border-color: rgba(245, 217, 96, 0.45);
+  background: rgba(245, 217, 96, 0.06);
+  text-shadow: 0 0 12px rgba(245, 217, 96, 0.3);
+}
+
+/* ─── Countdown timer ─── */
+@keyframes countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.countdown-tick {
+  font-family: var(--font-chalk-mono);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px rgba(232, 228, 217, 0.15);
+  letter-spacing: 0.05em;
+}
+
+.countdown-colon {
+  animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+/* ─── Fade in animation ─── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.4s ease-out forwards;
+}
+
+.fade-up-delay-1 { animation-delay: 0.05s; opacity: 0; }
+.fade-up-delay-2 { animation-delay: 0.1s; opacity: 0; }
+.fade-up-delay-3 { animation-delay: 0.15s; opacity: 0; }
+
+/* ─── Form inputs ─── */
+.input-field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 400;
+  font-family: var(--font-chalk-body);
+  background: rgba(26, 42, 26, 0.8);
+  border: 1.5px dashed var(--dust-medium);
+  color: var(--chalk-white);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field::placeholder {
+  color: var(--chalk-ghost);
+  font-family: var(--font-chalk-body);
+}
+
+.input-field:focus {
+  border-color: rgba(245, 217, 96, 0.4);
+  box-shadow: 0 0 12px rgba(245, 217, 96, 0.06);
+}
+
+/* ─── Stats Ticker ─── */
+.chalk-ticker {
+  background: rgba(45, 66, 48, 0.4);
+  border: 1.5px dashed rgba(232, 228, 217, 0.1);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.chalk-ticker::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(245, 217, 96, 0.02) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.chalk-ticker-divider {
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(168, 164, 148, 0.3) 0px,
+    rgba(168, 164, 148, 0.15) 3px,
+    transparent 3px,
+    transparent 5px,
+    rgba(168, 164, 148, 0.2) 5px,
+    rgba(168, 164, 148, 0.08) 8px,
+    transparent 8px,
+    transparent 10px
+  );
+}
+
+/* ─── Ruled line (like notebook paper on chalkboard) ─── */
+.chalk-ruled-line {
+  height: 1.5px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(168, 164, 148, 0.35) 0px,
+    rgba(168, 164, 148, 0.15) 6px,
+    transparent 6px,
+    transparent 10px,
+    rgba(168, 164, 148, 0.25) 10px,
+    rgba(168, 164, 148, 0.08) 18px,
+    transparent 18px,
+    transparent 22px
+  );
+}
+
+/* ─── Featured Hero Card ─── */
+.hero-card {
+  background: rgba(45, 66, 48, 0.75);
+  border: 1.5px dashed rgba(245, 217, 96, 0.2);
+  position: relative;
+  box-shadow:
+    inset 0 2px 12px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 6px rgba(0, 0, 0, 0.3),
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(245, 217, 96, 0.04);
+  transition: all 0.3s ease;
+}
+
+.hero-card:hover {
+  border-color: rgba(245, 217, 96, 0.35);
+  box-shadow:
+    inset 0 2px 12px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 6px rgba(0, 0, 0, 0.3),
+    0 8px 40px rgba(0, 0, 0, 0.4),
+    0 0 60px rgba(245, 217, 96, 0.06);
+  transform: translateY(-2px);
+}
+
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(245, 217, 96, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(93, 232, 138, 0.04) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-score {
+  font-size: 2.75rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.hero-score-divider {
+  color: var(--chalk-ghost);
+  opacity: 0.4;
+}
+
+.hero-watch-btn {
+  background: rgba(245, 217, 96, 0.1);
+  border: 1.5px dashed rgba(245, 217, 96, 0.3);
+  color: var(--color-yellow);
+  transition: all 0.2s ease;
+}
+
+.hero-watch-btn:hover {
+  background: rgba(245, 217, 96, 0.15);
+  border-color: rgba(245, 217, 96, 0.5);
+  text-shadow: 0 0 12px rgba(245, 217, 96, 0.3);
+}
+
+.hero-dust-edge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(245, 217, 96, 0.15) 20%,
+    rgba(245, 217, 96, 0.25) 50%,
+    rgba(245, 217, 96, 0.15) 80%,
+    transparent 100%
+  );
+}
+
+/* ─── Chalk Tray (bottom of board) ─── */
+.chalk-tray {
+  position: relative;
+  height: 6px;
+  border-radius: 2px;
+  overflow: visible;
+}
+
+.chalk-tray::before {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 0;
+  height: 3px;
+  background: rgba(168, 164, 148, 0.08);
+  border-radius: 0 0 2px 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chalk-tray-dust {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 2px;
+  height: 2px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(232, 228, 217, 0.06) 0%,
+    transparent 70%
+  );
+}
+
+/* ─── Empty Board ─── */
+.chalk-empty-board {
+  width: 120px;
+  height: 100px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(45, 66, 48, 0.3);
+  border: 1.5px dashed rgba(232, 228, 217, 0.1);
+  border-radius: 4px;
+}
+
+.chalk-empty-lines {
+  position: absolute;
+  inset: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.chalk-empty-icon {
+  position: relative;
+  z-index: 1;
 }
