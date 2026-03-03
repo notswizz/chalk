@@ -39,13 +39,13 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Chalk',
   },
-  metadataBase: new URL('https://chalkstreams.vercel.app'),
+  metadataBase: new URL('https://chalkstreams.live'),
   openGraph: {
     type: 'website',
     siteName: 'Chalk',
     title: 'Chalk — Live Sports Props on the Board',
     description: 'Watch live sports, draw up player props, and bet with CHALK tokens.',
-    url: 'https://chalkstreams.vercel.app',
+    url: 'https://chalkstreams.live',
     images: [{ url: '/chalk-logo.png', width: 512, height: 512, alt: 'Chalk' }],
   },
   twitter: {

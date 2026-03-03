@@ -28,7 +28,7 @@ async function getCard(id: string): Promise<ChalkCard | null> {
 }
 
 function getBaseUrl(): string {
-  return 'https://chalkstreams.vercel.app';
+  return 'https://chalkstreams.live';
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
