@@ -40,6 +40,7 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showChalkCard, setShowChalkCard] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const isCreator = userId === bet.creatorId;
   const isTaker = userId === bet.takerId;
@@ -57,7 +58,6 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   const creatorOdds = toAmericanOdds(creatorDecimal);
 
   async function handleTake() {
-    if (!authenticated) { login(); return; }
     setLoading(true);
     try {
       const token = await getAccessToken();
@@ -198,7 +198,11 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
           <div className="flex items-center gap-1.5">
             {isOpen && !isCreator && (
               <button
-                onClick={(e) => { e.stopPropagation(); handleTake(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!authenticated) { login(); return; }
+                  setShowConfirm(true);
+                }}
                 disabled={loading}
                 className="chalk-btn chalk-btn-accent px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer disabled:opacity-50"
               >
@@ -243,6 +247,67 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
       {/* Chalk Card modal */}
       {showChalkCard && (
         <ChalkCardModal bet={bet} onClose={() => setShowChalkCard(false)} />
+      )}
+
+      {/* Confirm take modal */}
+      {showConfirm && createPortal(
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center px-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowConfirm(false)}
+        >
+          <div
+            className="chalk-card rounded-[4px] w-full max-w-xs overflow-hidden fade-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3" style={{ borderBottom: '1px dashed var(--dust-light)' }}>
+              <span className="chalk-header text-base" style={{ color: 'var(--chalk-white)' }}>Confirm Bet</span>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="text-sm" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}>
+                You&apos;re taking <span className="chalk-header" style={{ color: displayDirColor }}>{counterDir.toUpperCase()}</span> {bet.target} {statLabel} on <span className="chalk-header">{bet.player}</span>
+              </div>
+
+              <div className="flex items-center justify-between py-2 px-3 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Your Stake</div>
+                  <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{bet.takerStake}</div>
+                  {price !== null && <div className="text-[9px] tabular-nums" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(bet.takerStake, price)}</div>}
+                </div>
+                <div className="text-lg" style={{ color: 'var(--chalk-ghost)' }}>&rarr;</div>
+                <div className="text-right">
+                  <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Total Pot</div>
+                  <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{pool}</div>
+                  {price !== null && <div className="text-[9px] tabular-nums" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(pool, price)}</div>}
+                </div>
+              </div>
+
+              <div className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                vs {bet.creatorName} &middot; Odds: {takerOdds}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer"
+                  style={{ background: 'rgba(232,228,217,0.06)', border: '1px dashed rgba(232,228,217,0.12)', color: 'var(--chalk-dim)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { setShowConfirm(false); handleTake(); }}
+                  disabled={loading}
+                  className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50"
+                  style={{ background: 'rgba(93,232,138,0.15)', border: '1.5px dashed rgba(93,232,138,0.3)', color: 'var(--color-green)' }}
+                >
+                  {loading ? '...' : 'Lock it in'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );
