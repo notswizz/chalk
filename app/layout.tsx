@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Permanent_Marker, Patrick_Hand, Indie_Flower } from 'next/font/google';
 import './globals.css';
 import { TopNav } from '@/components/TopNav';
+import { Analytics } from '@vercel/analytics/next';
 import { Providers } from './providers';
 
 const chalkHeader = Permanent_Marker({
@@ -63,6 +64,7 @@ export default function RootLayout({
           <TopNav />
           <main className="relative min-h-screen">{children}</main>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
