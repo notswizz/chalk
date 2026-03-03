@@ -36,7 +36,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [needsUsername, setNeedsUsername] = useState(false);
 
-  const wallet = wallets[0] ?? null;
+  // Only use external wallets (Phantom, etc.) — ignore Privy embedded wallets
+  // Privy embedded wallets may appear as "Privy" or "privy.io"
+  const wallet = wallets.find((w) => {
+    const name = w.standardWallet.name.toLowerCase();
+    return !name.includes('privy');
+  }) ?? null;
+
   const userId = user?.id ?? null;
 
   const privyAvatar = user?.twitter?.profilePictureUrl || '';
@@ -68,6 +74,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authenticated) fetchProfile();
   }, [authenticated, fetchProfile]);
+
+  // Sync wallet address to Firestore when available
+  useEffect(() => {
+    if (!authenticated || !wallet?.address) return;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        await fetch('/api/users/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ walletAddress: wallet.address }),
+        });
+      } catch { /* silent */ }
+    })();
+  }, [authenticated, wallet?.address, getAccessToken]);
 
   const setUsername = useCallback(async (username: string) => {
     if (!authenticated) return;

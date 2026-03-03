@@ -79,61 +79,65 @@ export default function BetsPage() {
   const activeTab = TABS.find((t) => t.key === tab)!;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pt-8 pb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>The Board</h1>
-          {!loading && bets.length > 0 && (
-            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold tabular-nums" style={{ background: activeTab.bg, color: activeTab.color }}>
-              {bets.length}
-            </span>
-          )}
-        </div>
+    <div className="pinned-header-layout max-w-2xl mx-auto px-4">
+      {/* ─── Pinned Header ─── */}
+      <div className="pinned-header pt-8 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>The Board</h1>
+            {!loading && bets.length > 0 && (
+              <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold tabular-nums" style={{ background: activeTab.bg, color: activeTab.color }}>
+                {bets.length}
+              </span>
+            )}
+          </div>
 
-        {/* Tab switcher */}
-        <div
-          className="flex items-center gap-0.5 p-0.5 rounded-[4px]"
-          style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-light)' }}
-        >
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all duration-200 cursor-pointer"
-              style={{
-                background: tab === t.key ? t.bg : 'transparent',
-                color: tab === t.key ? t.color : 'var(--chalk-ghost)',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+          {/* Tab switcher */}
+          <div
+            className="flex items-center gap-0.5 p-0.5 rounded-[4px]"
+            style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-light)' }}
+          >
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all duration-200 cursor-pointer"
+                style={{
+                  background: tab === t.key ? t.bg : 'transparent',
+                  color: tab === t.key ? t.color : 'var(--chalk-ghost)',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="space-y-2.5">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="shimmer rounded-[4px] h-[120px]" />
-          ))}
-        </div>
-      ) : bets.length === 0 ? (
-        <EmptyState tab={tab} />
-      ) : (
-        <div className="space-y-2.5 fade-up">
-          {bets.map((bet) => (
-            <BetCard
-              key={bet.id}
-              bet={bet}
-              onUpdate={fetchBets}
-              showGame
-              gameOver={gameStates[bet.gameId] === 'post' || !gameStates[bet.gameId]}
-            />
-          ))}
-        </div>
-      )}
+      {/* ─── Scrollable Content ─── */}
+      <div className="pinned-scroll scrollbar-hide">
+        {loading ? (
+          <div className="space-y-2.5">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="shimmer rounded-[4px] h-[120px]" />
+            ))}
+          </div>
+        ) : bets.length === 0 ? (
+          <EmptyState tab={tab} />
+        ) : (
+          <div className="space-y-2.5 fade-up">
+            {bets.map((bet) => (
+              <BetCard
+                key={bet.id}
+                bet={bet}
+                onUpdate={fetchBets}
+                showGame
+                gameOver={gameStates[bet.gameId] === 'post' || !gameStates[bet.gameId]}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

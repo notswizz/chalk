@@ -2,13 +2,19 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
+import { useConnectWallet } from '@privy-io/react-auth';
 import { AddTokensModal } from './AddTokensModal';
+import { WithdrawModal } from './WithdrawModal';
 import { SetUsernameModal } from './SetUsernameModal';
+import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 
 export function LoginButton() {
-  const { login, logout, authenticated, ready, profile, loadingProfile, refreshProfile, needsUsername, setUsername } = useUser();
+  const { login, logout, authenticated, ready, profile, loadingProfile, refreshProfile, needsUsername, setUsername, wallet } = useUser();
+  const { connectWallet } = useConnectWallet();
+  const { price } = useChalkPrice();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAddTokens, setShowAddTokens] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +59,7 @@ export function LoginButton() {
       <div className="flex items-center gap-3">
         {/* Chalk balance pill */}
         <button
-          onClick={() => setShowAddTokens(true)}
+          onClick={() => wallet ? setShowAddTokens(true) : connectWallet()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-sm font-bold cursor-pointer transition-all duration-200 hover:brightness-125"
           style={{
             background: 'rgba(245,217,96,0.08)',
@@ -66,6 +72,11 @@ export function LoginButton() {
             <circle cx="12" cy="12" r="10" />
           </svg>
           {loadingProfile ? '--' : (profile?.coins ?? 0).toLocaleString()}
+          {!loadingProfile && price !== null && (
+            <span className="text-[10px] opacity-50 ml-0.5" style={{ color: 'var(--chalk-dim)' }}>
+              {formatUsd(profile?.coins ?? 0, price)}
+            </span>
+          )}
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="ml-0.5 opacity-50">
             <path d="M12 5v14M5 12h14" />
           </svg>
@@ -113,17 +124,44 @@ export function LoginButton() {
             <div
               className="absolute right-0 top-full mt-2 w-48 rounded-[4px] py-1.5 shadow-2xl shadow-black/50 z-50 chalk-card"
             >
-              <button
-                onClick={() => { setMenuOpen(false); setShowAddTokens(true); }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                style={{ color: 'var(--chalk-dim)' }}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 8v8M8 12h8" />
-                </svg>
-                Add Chalk
-              </button>
+              {!wallet ? (
+                <button
+                  onClick={() => { setMenuOpen(false); connectWallet(); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
+                  style={{ color: 'var(--color-yellow)' }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="6" width="20" height="12" rx="2" />
+                    <path d="M16 12h.01" />
+                  </svg>
+                  Connect Wallet
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setMenuOpen(false); setShowAddTokens(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
+                    style={{ color: 'var(--chalk-dim)' }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 8v8M8 12h8" />
+                    </svg>
+                    Deposit
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); setShowWithdraw(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
+                    style={{ color: 'var(--chalk-dim)' }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M8 12h8M12 8l4 4-4 4" />
+                    </svg>
+                    Withdraw
+                  </button>
+                </>
+              )}
               {needsUsername && (
                 <button
                   onClick={() => { setMenuOpen(false); setShowEditProfile(true); }}
@@ -157,6 +195,13 @@ export function LoginButton() {
         <AddTokensModal
           onClose={() => setShowAddTokens(false)}
           onAdded={() => { setShowAddTokens(false); refreshProfile(); }}
+        />
+      )}
+
+      {showWithdraw && (
+        <WithdrawModal
+          onClose={() => setShowWithdraw(false)}
+          onWithdrawn={() => { setShowWithdraw(false); refreshProfile(); }}
         />
       )}
 

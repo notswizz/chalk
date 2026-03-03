@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser } from '@/hooks/useUser';
+import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 import { useState, useEffect } from 'react';
 import { ChalkCardModal } from '@/components/chalk-cards/ChalkCardModal';
 
@@ -36,6 +37,7 @@ const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', as
 
 export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpdate: () => void; showGame?: boolean; gameOver?: boolean }) {
   const { authenticated, userId, getAccessToken, login } = useUser();
+  const { price } = useChalkPrice();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showValidate, setShowValidate] = useState(false);
@@ -179,12 +181,14 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
                 <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
                   {bet.takerStake}
                 </div>
+                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(bet.takerStake, price)}</div>}
               </div>
               <div>
                 <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
                 <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>
                   {pool}
                 </div>
+                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(pool, price)}</div>}
               </div>
               <div>
                 <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
@@ -326,6 +330,7 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
           loading={loading}
           onCancel={handleCancel}
           onClose={() => setShowModal(false)}
+          price={price}
         />
       )}
 
@@ -337,10 +342,10 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   );
 }
 
-function BetDetailModal({ bet, statLabel, takerOdds, pool, isCreator, isOpen, loading, onCancel, onClose }: {
+function BetDetailModal({ bet, statLabel, takerOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price }: {
   bet: Bet; statLabel: string; takerOdds: string; pool: number;
   isCreator: boolean; isOpen: boolean; loading: boolean;
-  onCancel: () => void; onClose: () => void;
+  onCancel: () => void; onClose: () => void; price: number | null;
 }) {
   const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
 
@@ -385,10 +390,12 @@ function BetDetailModal({ bet, statLabel, takerOdds, pool, isCreator, isOpen, lo
             <div className="text-center flex-1 py-2 rounded-[4px]" style={{ background: 'rgba(245,217,96,0.06)', border: '1px dashed rgba(245,217,96,0.1)' }}>
               <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
               <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{bet.takerStake}</div>
+              {price !== null && <div className="text-[10px] tabular-nums opacity-50 mt-0.5" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(bet.takerStake, price)}</div>}
             </div>
             <div className="text-center flex-1 py-2 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
               <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
               <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{pool}</div>
+              {price !== null && <div className="text-[10px] tabular-nums opacity-50 mt-0.5" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(pool, price)}</div>}
             </div>
             <div className="text-center flex-1 py-2 rounded-[4px]" style={{ background: 'rgba(93,232,138,0.06)', border: '1px dashed rgba(93,232,138,0.1)' }}>
               <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>

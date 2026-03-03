@@ -3,6 +3,7 @@
 import { PrivyProvider } from '@privy-io/react-auth';
 import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import { UserProvider } from '@/hooks/useUser';
+import { ChalkPriceProvider } from '@/hooks/useChalkPrice';
 
 const solanaConnectors = toSolanaWalletConnectors();
 
@@ -15,18 +16,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
           theme: 'dark',
           accentColor: '#f5d960',
         },
-        loginMethods: ['google'],
+        loginMethods: ['wallet', 'google'],
         embeddedWallets: {
-          solana: { createOnLogin: 'all-users' },
+          solana: { createOnLogin: 'off' },
         },
         externalWallets: {
           solana: { connectors: solanaConnectors },
         },
       }}
     >
-      <UserProvider>
-        {children}
-      </UserProvider>
+      <ChalkPriceProvider>
+        <UserProvider>
+          {children}
+        </UserProvider>
+      </ChalkPriceProvider>
     </PrivyProvider>
   );
 }

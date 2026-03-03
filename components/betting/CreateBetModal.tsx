@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useUser } from '@/hooks/useUser';
+import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 
 const STATS = [
   { value: 'points', label: 'Points' },
@@ -33,6 +34,7 @@ function formatAmerican(val: number): string {
 
 export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props) {
   const { getAccessToken, profile } = useUser();
+  const { price } = useChalkPrice();
   const [player, setPlayer] = useState('');
   const [stat, setStat] = useState('points');
   const [target, setTarget] = useState('');
@@ -237,7 +239,9 @@ export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props)
                       <div className="text-right">
                         <div className="text-xs" style={{ color: 'var(--chalk-ghost)' }}>
                           Risk <span className="font-bold tabular-nums" style={{ color: 'var(--color-yellow)' }}>{stakeNum}</span>
+                          {price !== null && <span className="opacity-50 ml-0.5">({formatUsd(stakeNum, price)})</span>}
                           {' '}&rarr; Win <span className="font-bold tabular-nums" style={{ color: 'var(--color-green)' }}>{takerStake}</span>
+                          {price !== null && <span className="opacity-50 ml-0.5">({formatUsd(takerStake, price)})</span>}
                         </div>
                       </div>
                     </div>
@@ -267,7 +271,9 @@ export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props)
                       <div className="text-right">
                         <div className="text-xs" style={{ color: 'var(--chalk-ghost)' }}>
                           Risk <span className="font-bold tabular-nums" style={{ color: 'var(--color-yellow)' }}>{takerStake}</span>
+                          {price !== null && <span className="opacity-50 ml-0.5">({formatUsd(takerStake, price)})</span>}
                           {' '}&rarr; Win <span className="font-bold tabular-nums" style={{ color: 'var(--color-green)' }}>{stakeNum}</span>
+                          {price !== null && <span className="opacity-50 ml-0.5">({formatUsd(stakeNum, price)})</span>}
                         </div>
                       </div>
                     </div>
@@ -277,6 +283,7 @@ export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props)
                   <div className="px-3.5 py-2.5 flex items-center justify-center" style={{ background: 'rgba(245,217,96,0.04)', borderTop: '1px dashed rgba(245,217,96,0.08)' }}>
                     <span className="text-[10px] font-bold" style={{ color: 'var(--chalk-ghost)' }}>
                       Total Pool: <span className="tabular-nums" style={{ color: 'var(--color-yellow)' }}>{payout}</span>
+                      {price !== null && <span className="opacity-50 ml-1">({formatUsd(payout, price)})</span>}
                     </span>
                   </div>
                 </div>

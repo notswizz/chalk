@@ -49,14 +49,11 @@ export function GameCard({ game, odds, volume }: GameCardProps) {
                 </span>
                 <span className="text-xs" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{game.awayTeam.abbreviation}</span>
               </div>
-              <div className="flex items-center gap-2">
-                {odds.spread && (
-                  <span className="text-xs tabular-nums chalk-header" style={{ color: 'var(--color-blue)' }}>
-                    {odds.spread.team} -{odds.spread.line}
-                  </span>
-                )}
-                <span className="text-[10px] tracking-widest chalk-header" style={{ color: 'var(--chalk-ghost)' }}>WIN PROB</span>
-              </div>
+              {odds.spread && (
+                <span className="text-xs tabular-nums chalk-header" style={{ color: 'var(--color-blue)' }}>
+                  {odds.spread.team} -{odds.spread.line}
+                </span>
+              )}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{game.homeTeam.abbreviation}</span>
                 <span

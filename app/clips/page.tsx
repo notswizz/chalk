@@ -50,43 +50,49 @@ export default function ClipsPage() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 pt-6 pb-20">
-      <h1 className="text-xl chalk-header mb-5" style={{ color: 'var(--chalk-white)' }}>Clips</h1>
+    <div className="pinned-header-layout max-w-4xl mx-auto px-4">
+      {/* ─── Pinned Header ─── */}
+      <div className="pinned-header pt-6 pb-4">
+        <h1 className="text-xl chalk-header" style={{ color: 'var(--chalk-white)' }}>Clips</h1>
+      </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="aspect-video rounded-[4px] shimmer" />
-          ))}
-        </div>
-      ) : clips.length === 0 ? (
-        <div className="text-center py-16">
-          <div
-            className="w-16 h-16 mx-auto mb-4 rounded-[4px] flex items-center justify-center"
-            style={{ background: 'var(--dust-light)' }}
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--chalk-ghost)" strokeWidth="2">
-              <circle cx="6" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <line x1="20" y1="4" x2="8.12" y2="15.88" />
-              <line x1="14.47" y1="14.48" x2="20" y2="20" />
-              <line x1="8.12" y1="8.12" x2="12" y2="12" />
-            </svg>
+      {/* ─── Scrollable Content ─── */}
+      <div className="pinned-scroll scrollbar-hide">
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="aspect-video rounded-[4px] shimmer" />
+            ))}
           </div>
-          <p className="text-sm" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
-            No clips yet
-          </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-            Watch a live game and hit the clip button to capture a highlight.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {clips.map((clip, i) => (
-            <ClipCard key={clip.id} clip={clip} index={i} />
-          ))}
-        </div>
-      )}
+        ) : clips.length === 0 ? (
+          <div className="text-center py-16">
+            <div
+              className="w-16 h-16 mx-auto mb-4 rounded-[4px] flex items-center justify-center"
+              style={{ background: 'var(--dust-light)' }}
+            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--chalk-ghost)" strokeWidth="2">
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                <line x1="8.12" y1="8.12" x2="12" y2="12" />
+              </svg>
+            </div>
+            <p className="text-sm" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
+              No clips yet
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+              Watch a live game and hit the clip button to capture a highlight.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {clips.map((clip, i) => (
+              <ClipCard key={clip.id} clip={clip} index={i} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

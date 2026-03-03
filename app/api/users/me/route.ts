@@ -27,6 +27,7 @@ export async function PATCH(req: Request) {
       updates.usernameSet = true;
     }
     if (body.avatarUrl) updates.avatarUrl = body.avatarUrl;
+    if (body.walletAddress) updates.walletAddress = body.walletAddress;
 
     if (Object.keys(updates).length > 0) {
       await updateDoc(doc(firestore, 'users', userId), updates);
