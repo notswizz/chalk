@@ -6,7 +6,7 @@ import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 
 export function WithdrawModal({ onClose, onWithdrawn }: { onClose: () => void; onWithdrawn: () => void }) {
-  const { getAccessToken, profile, wallet } = useUser();
+  const { getAccessToken, profile, wallet, walletMismatch, savedWalletAddress } = useUser();
   const { price } = useChalkPrice();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -118,6 +118,21 @@ export function WithdrawModal({ onClose, onWithdrawn }: { onClose: () => void; o
           </button>
         </div>
 
+        {/* Wallet mismatch warning */}
+        {walletMismatch && savedWalletAddress && (
+          <div
+            className="mb-4 rounded-[4px] px-4 py-3"
+            style={{ background: 'rgba(232,93,93,0.08)', border: '1px dashed rgba(232,93,93,0.25)' }}
+          >
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-red)' }}>
+              Wrong wallet connected
+            </p>
+            <p className="text-[11px]" style={{ color: 'var(--chalk-ghost)' }}>
+              Switch to {savedWalletAddress.slice(0, 4)}...{savedWalletAddress.slice(-4)} in Phantom to withdraw.
+            </p>
+          </div>
+        )}
+
         <div className="mb-4">
           <label className="text-xs mb-1 block" style={{ color: 'var(--chalk-ghost)' }}>
             Balance: {(profile?.coins ?? 0).toLocaleString()} CHALK{price !== null ? ` (~${formatUsd(profile?.coins ?? 0, price)})` : ''}
@@ -143,7 +158,7 @@ export function WithdrawModal({ onClose, onWithdrawn }: { onClose: () => void; o
             Destination wallet
           </label>
           <input
-            value={walletAddress}
+            value={savedWalletAddress || walletAddress}
             readOnly
             className="w-full px-3 py-2.5 rounded-[4px] text-xs outline-none truncate"
             style={{
@@ -158,7 +173,7 @@ export function WithdrawModal({ onClose, onWithdrawn }: { onClose: () => void; o
 
         <button
           onClick={handleWithdraw}
-          disabled={loading || !amount}
+          disabled={loading || !amount || walletMismatch}
           className="w-full py-3 rounded-[4px] text-sm font-bold transition-all duration-200 disabled:opacity-50 cursor-pointer"
           style={{
             background: 'rgba(245,217,96,0.15)',

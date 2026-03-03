@@ -9,13 +9,14 @@ import { SetUsernameModal } from './SetUsernameModal';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 
 export function LoginButton() {
-  const { login, logout, authenticated, ready, profile, loadingProfile, refreshProfile, needsUsername, setUsername, wallet } = useUser();
+  const { login, logout, authenticated, ready, profile, loadingProfile, refreshProfile, needsUsername, setUsername, wallet, walletMismatch, savedWalletAddress } = useUser();
   const { connectWallet } = useConnectWallet();
   const { price } = useChalkPrice();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAddTokens, setShowAddTokens] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [mismatchToast, setMismatchToast] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on outside click
@@ -58,29 +59,50 @@ export function LoginButton() {
     <>
       <div className="flex items-center gap-3">
         {/* Chalk balance pill */}
-        <button
-          onClick={() => wallet ? setShowAddTokens(true) : connectWallet()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-sm font-bold cursor-pointer transition-all duration-200 hover:brightness-125"
-          style={{
-            background: 'rgba(245,217,96,0.08)',
-            border: '1px dashed rgba(245,217,96,0.15)',
-            color: 'var(--color-yellow)',
-          }}
-          title="Add Chalk"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-          {loadingProfile ? '--' : (profile?.coins ?? 0).toLocaleString()}
-          {!loadingProfile && price !== null && (
-            <span className="text-[10px] opacity-50 ml-0.5" style={{ color: 'var(--chalk-dim)' }}>
-              {formatUsd(profile?.coins ?? 0, price)}
-            </span>
+        <div className="relative">
+          <button
+            onClick={() => {
+              if (walletMismatch) { setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
+              wallet ? setShowAddTokens(true) : connectWallet();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-sm font-bold cursor-pointer transition-all duration-200 hover:brightness-125"
+            style={{
+              background: walletMismatch ? 'rgba(232,93,93,0.08)' : 'rgba(245,217,96,0.08)',
+              border: `1px dashed ${walletMismatch ? 'rgba(232,93,93,0.25)' : 'rgba(245,217,96,0.15)'}`,
+              color: walletMismatch ? 'var(--color-red)' : 'var(--color-yellow)',
+            }}
+            title={walletMismatch ? 'Wrong wallet connected' : 'Add Chalk'}
+          >
+            {walletMismatch ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            )}
+            {loadingProfile ? '--' : (profile?.coins ?? 0).toLocaleString()}
+            {!loadingProfile && price !== null && (
+              <span className="text-[10px] opacity-50 ml-0.5" style={{ color: 'var(--chalk-dim)' }}>
+                {formatUsd(profile?.coins ?? 0, price)}
+              </span>
+            )}
+            {!walletMismatch && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="ml-0.5 opacity-50">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            )}
+          </button>
+          {mismatchToast && savedWalletAddress && (
+            <div
+              className="absolute right-0 top-full mt-2 w-64 rounded-[4px] px-3 py-2.5 z-50 text-xs"
+              style={{ background: 'var(--board-dark)', border: '1px dashed rgba(232,93,93,0.3)', color: 'var(--color-red)' }}
+            >
+              Wrong wallet. Switch to {savedWalletAddress.slice(0, 4)}...{savedWalletAddress.slice(-4)} in Phantom.
+            </div>
           )}
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="ml-0.5 opacity-50">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
+        </div>
 
         {/* Profile badge with dropdown */}
         <div className="relative" ref={menuRef}>
@@ -139,26 +161,34 @@ export function LoginButton() {
               ) : (
                 <>
                   <button
-                    onClick={() => { setMenuOpen(false); setShowAddTokens(true); }}
+                    onClick={() => {
+                      if (walletMismatch) { setMenuOpen(false); setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
+                      setMenuOpen(false); setShowAddTokens(true);
+                    }}
                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                    style={{ color: 'var(--chalk-dim)' }}
+                    style={{ color: walletMismatch ? 'var(--chalk-ghost)' : 'var(--chalk-dim)' }}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M12 8v8M8 12h8" />
                     </svg>
                     Deposit
+                    {walletMismatch && <span className="text-[10px] ml-auto" style={{ color: 'var(--color-red)' }}>!</span>}
                   </button>
                   <button
-                    onClick={() => { setMenuOpen(false); setShowWithdraw(true); }}
+                    onClick={() => {
+                      if (walletMismatch) { setMenuOpen(false); setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
+                      setMenuOpen(false); setShowWithdraw(true);
+                    }}
                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                    style={{ color: 'var(--chalk-dim)' }}
+                    style={{ color: walletMismatch ? 'var(--chalk-ghost)' : 'var(--chalk-dim)' }}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M8 12h8M12 8l4 4-4 4" />
                     </svg>
                     Withdraw
+                    {walletMismatch && <span className="text-[10px] ml-auto" style={{ color: 'var(--color-red)' }}>!</span>}
                   </button>
                 </>
               )}

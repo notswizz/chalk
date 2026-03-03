@@ -28,13 +28,36 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const [votes, setVotes] = useState<Record<string, { upvotes: number; downvotes: number; score: number }>>({});
   const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
 
+  // Fetch game, streams, volume, and odds in parallel on mount
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/streams/${id}`);
-        const data = await res.json();
-        setGame(data.game ?? null);
-        setStreams(data.streams ?? []);
+        const [streamsRes, volumeRes, oddsRes] = await Promise.all([
+          fetch(`/api/streams/${id}`),
+          fetch(`/api/bets/volume?gameIds=${id}`),
+          fetch('/api/odds'),
+        ]);
+
+        const streamsData = await streamsRes.json();
+        setGame(streamsData.game ?? null);
+        setStreams(streamsData.streams ?? []);
+
+        const volumeData = await volumeRes.json();
+        setVolume(volumeData.volumes?.[id] ?? null);
+
+        const oddsData = await oddsRes.json();
+        const gameData = streamsData.game;
+        if (gameData) {
+          const markets: KalshiMarket[] = oddsData.markets ?? [];
+          const spreads: KalshiMarket[] = oddsData.spreads ?? [];
+          if (markets.length > 0) {
+            const d = new Date(gameData.date);
+            const ticker = buildKalshiTicker(d, gameData.awayTeam.abbreviation, gameData.homeTeam.abbreviation);
+            const spreadTicker = buildSpreadEventTicker(d, gameData.awayTeam.abbreviation, gameData.homeTeam.abbreviation);
+            setKalshiTicker(ticker);
+            setOdds(matchOdds(markets, ticker, gameData.awayTeam.abbreviation, gameData.homeTeam.abbreviation, spreads, spreadTicker));
+          }
+        }
       } catch {
         setError(true);
       } finally {
@@ -44,29 +67,21 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     load();
   }, [id]);
 
-  // Fetch volume
-  useEffect(() => {
-    async function fetchVolume() {
-      try {
-        const res = await fetch(`/api/bets/volume?gameIds=${id}`);
-        const data = await res.json();
-        setVolume(data.volumes?.[id] ?? null);
-      } catch { /* silent */ }
-    }
-    fetchVolume();
-    const interval = setInterval(fetchVolume, 30000);
-    return () => clearInterval(interval);
-  }, [id]);
-
-  // Fetch odds
+  // Polling: volume + odds refresh every 30s
   useEffect(() => {
     if (!game) return;
-    async function fetchOdds() {
+    async function refresh() {
       try {
-        const res = await fetch('/api/odds');
-        const data = await res.json();
-        const markets: KalshiMarket[] = data.markets ?? [];
-        const spreads: KalshiMarket[] = data.spreads ?? [];
+        const [volumeRes, oddsRes] = await Promise.all([
+          fetch(`/api/bets/volume?gameIds=${id}`),
+          fetch('/api/odds'),
+        ]);
+        const volumeData = await volumeRes.json();
+        setVolume(volumeData.volumes?.[id] ?? null);
+
+        const oddsData = await oddsRes.json();
+        const markets: KalshiMarket[] = oddsData.markets ?? [];
+        const spreads: KalshiMarket[] = oddsData.spreads ?? [];
         if (markets.length > 0 && game) {
           const d = new Date(game.date);
           const ticker = buildKalshiTicker(d, game.awayTeam.abbreviation, game.homeTeam.abbreviation);
@@ -76,10 +91,9 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         }
       } catch { /* silent */ }
     }
-    fetchOdds();
-    const interval = setInterval(fetchOdds, 30000);
+    const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
-  }, [game]);
+  }, [game, id]);
 
   useEffect(() => {
     if (!game || game.state !== 'in') return;

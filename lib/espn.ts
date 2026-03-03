@@ -77,6 +77,54 @@ export async function fetchAllGames(): Promise<Game[]> {
 }
 
 export async function fetchGameById(gameId: string): Promise<Game | null> {
-  const allGames = await fetchAllGames();
-  return allGames.find((g) => g.id === gameId) ?? null;
+  // Fetch the single game summary directly instead of loading all games
+  try {
+    const res = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`,
+      { next: { revalidate: 30 } }
+    );
+    if (!res.ok) {
+      // Fallback to scoreboard scan
+      const allGames = await fetchAllGames();
+      return allGames.find((g) => g.id === gameId) ?? null;
+    }
+    const data = await res.json();
+    const event = data.header?.competitions?.[0];
+    if (!event) return null;
+
+    const competitors = event.competitors ?? [];
+    const home = competitors.find((c: any) => c.homeAway === 'home');
+    const away = competitors.find((c: any) => c.homeAway === 'away');
+
+    const toTeam = (c: any, side: 'home' | 'away'): Team => ({
+      abbreviation: c?.team?.abbreviation ?? '???',
+      displayName: c?.team?.displayName ?? 'Unknown',
+      logo: c?.team?.logo ?? '',
+      score: c?.score ?? '0',
+      homeAway: side,
+    });
+
+    const statusType = event.status?.type ?? {};
+
+    return {
+      id: gameId,
+      sport: 'nba',
+      date: data.header?.competitions?.[0]?.date ?? '',
+      state: statusType.state ?? 'pre',
+      displayClock: event.status?.displayClock ?? '',
+      period: event.status?.period ?? 0,
+      shortDetail: statusType.shortDetail ?? '',
+      homeTeam: toTeam(home, 'home'),
+      awayTeam: toTeam(away, 'away'),
+      venue: data.gameInfo?.venue?.fullName ?? '',
+      broadcast:
+        event.broadcasts?.[0]?.names?.join(', ') ??
+        event.geoBroadcasts?.[0]?.media?.shortName ??
+        '',
+    };
+  } catch {
+    // Fallback to scoreboard scan
+    const allGames = await fetchAllGames();
+    return allGames.find((g) => g.id === gameId) ?? null;
+  }
 }

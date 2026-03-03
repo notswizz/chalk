@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BetCard, Bet } from '@/components/betting/BetCard';
+import { useUser } from '@/hooks/useUser';
 
 const TABS = [
   { key: 'open' as const, label: 'On the Board', color: 'var(--color-green)', bg: 'rgba(93,232,138,0.1)' },
@@ -10,7 +11,9 @@ const TABS = [
 ];
 
 export default function BetsPage() {
+  const { userId, authenticated } = useUser();
   const [tab, setTab] = useState<'open' | 'live' | 'validate'>('open');
+  const [mineOnly, setMineOnly] = useState(false);
   const [bets, setBets] = useState<Bet[]>([]);
   const [gameStates, setGameStates] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -76,6 +79,10 @@ export default function BetsPage() {
 
   useEffect(() => { fetchBets(); }, [fetchBets]);
 
+  const filteredBets = mineOnly && userId
+    ? bets.filter((b) => b.creatorId === userId || b.takerId === userId)
+    : bets;
+
   const activeTab = TABS.find((t) => t.key === tab)!;
 
   return (
@@ -85,10 +92,23 @@ export default function BetsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>The Board</h1>
-            {!loading && bets.length > 0 && (
+            {!loading && filteredBets.length > 0 && (
               <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold tabular-nums" style={{ background: activeTab.bg, color: activeTab.color }}>
-                {bets.length}
+                {filteredBets.length}
               </span>
+            )}
+            {authenticated && (
+              <button
+                onClick={() => setMineOnly((v) => !v)}
+                className="px-2.5 py-1 rounded-[4px] text-[10px] font-bold transition-all duration-200 cursor-pointer"
+                style={{
+                  background: mineOnly ? 'rgba(245,217,96,0.12)' : 'transparent',
+                  border: `1px dashed ${mineOnly ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
+                  color: mineOnly ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                }}
+              >
+                Mine
+              </button>
             )}
           </div>
 
@@ -122,11 +142,11 @@ export default function BetsPage() {
               <div key={i} className="shimmer rounded-[4px] h-[120px]" />
             ))}
           </div>
-        ) : bets.length === 0 ? (
-          <EmptyState tab={tab} />
+        ) : filteredBets.length === 0 ? (
+          <EmptyState tab={tab} mineOnly={mineOnly} />
         ) : (
           <div className="space-y-2.5 fade-up">
-            {bets.map((bet) => (
+            {filteredBets.map((bet) => (
               <BetCard
                 key={bet.id}
                 bet={bet}
@@ -142,7 +162,7 @@ export default function BetsPage() {
   );
 }
 
-function EmptyState({ tab }: { tab: string }) {
+function EmptyState({ tab, mineOnly }: { tab: string; mineOnly?: boolean }) {
   const config: Record<string, { icon: React.ReactNode; title: string; subtitle: string }> = {
     open: {
       icon: (
@@ -186,8 +206,8 @@ function EmptyState({ tab }: { tab: string }) {
       >
         {c.icon}
       </div>
-      <p className="text-sm font-semibold" style={{ color: 'var(--chalk-dim)' }}>{c.title}</p>
-      <p className="text-xs mt-1" style={{ color: 'var(--chalk-ghost)' }}>{c.subtitle}</p>
+      <p className="text-sm font-semibold" style={{ color: 'var(--chalk-dim)' }}>{mineOnly ? 'No props here' : c.title}</p>
+      <p className="text-xs mt-1" style={{ color: 'var(--chalk-ghost)' }}>{mineOnly ? 'You have no props in this tab' : c.subtitle}</p>
     </div>
   );
 }

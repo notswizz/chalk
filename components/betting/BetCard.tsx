@@ -3,6 +3,7 @@
 import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChalkCardModal } from '@/components/chalk-cards/ChalkCardModal';
 
 interface Validation {
@@ -60,13 +61,15 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
 
   const statLabel = STAT_LABELS[bet.stat] || bet.stat;
 
-  // Odds for the taker (counter-bettor)
-  function toTakerOdds() {
-    const takerDecimal = bet.creatorStake / bet.takerStake;
-    if (takerDecimal >= 1) return `+${Math.round(takerDecimal * 100)}`;
-    return `${Math.round(-100 / takerDecimal)}`;
+  // American odds from decimal
+  function toAmericanOdds(decimal: number) {
+    if (decimal >= 1) return `+${Math.round(decimal * 100)}`;
+    return `${Math.round(-100 / decimal)}`;
   }
-  const takerOdds = toTakerOdds();
+  const takerDecimal = bet.creatorStake / bet.takerStake;
+  const creatorDecimal = bet.takerStake / bet.creatorStake;
+  const takerOdds = toAmericanOdds(takerDecimal);
+  const creatorOdds = toAmericanOdds(creatorDecimal);
 
   async function handleTake() {
     if (!authenticated) { login(); return; }
@@ -134,67 +137,76 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   }
 
   const pool = bet.creatorStake + bet.takerStake;
-  const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
   const counterDir = bet.direction === 'over' ? 'under' : 'over';
+
+  // Show from the viewer's perspective:
+  // - If viewer is the taker: show taker side (counter direction)
+  // - If viewer is the creator: show creator side
+  // - If open bet and not creator: show taker side (what they'd be taking)
+  // - Otherwise: show creator side
+  const showTakerSide = isTaker || (isOpen && !isCreator);
+  const displayDir = showTakerSide ? counterDir : bet.direction;
+  const displayDirColor = displayDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';
+  const displayStake = showTakerSide ? bet.takerStake : bet.creatorStake;
+  const displayToWin = pool - displayStake;
+  const displayOdds = showTakerSide ? takerOdds : creatorOdds;
 
   return (
     <>
       <div
         className="chalk-card rounded-[4px] overflow-hidden transition-all duration-200 cursor-pointer"
-        style={{ opacity: isSettled || isCancelled ? 0.65 : 1 }}
+        style={{
+          opacity: isSettled || isCancelled ? 0.65 : 1,
+          ...(isParticipant ? { border: '1.5px dashed rgba(245,217,96,0.35)', boxShadow: '0 0 12px rgba(245,217,96,0.06)' } : {}),
+        }}
         onClick={() => setShowModal(true)}
       >
-        {/* Color accent bar */}
-        <div className="h-[2px]" style={{ background: isOpen ? 'var(--color-green)' : isMatched ? 'var(--color-yellow)' : 'var(--dust-medium)' }} />
-
         <div className="px-3 py-2.5">
-          {/* Game title */}
-          {showGame && bet.gameTitle && (
-            <div className="text-[9px] truncate mb-1.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{bet.gameTitle}</div>
+          {/* Top meta row */}
+          {(showGame && bet.gameTitle || isParticipant) && (
+            <div className="flex items-center gap-2 mb-1.5">
+              {showGame && bet.gameTitle && (
+                <span className="text-[9px] truncate" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{bet.gameTitle}</span>
+              )}
+              {isParticipant && (
+                <span className="text-[8px] chalk-header tracking-[0.15em] flex-shrink-0" style={{ color: 'var(--color-yellow)' }}>YOUR BET</span>
+              )}
+            </div>
           )}
 
-          {/* Row 1: Player name + numbers */}
-          <div className="flex items-start justify-between gap-2">
+          {/* Main row: player + prop on left, stake/to-win on right */}
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-sm truncate chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.player}</span>
                 <StatusBadge status={bet.status} gameOver={gameOver} isMatched={isMatched} />
               </div>
-
-              {/* Prop line */}
               <div className="flex items-center gap-1.5">
                 <span
                   className="px-1.5 py-px rounded-[3px] text-[10px] chalk-header tracking-wide"
-                  style={{ background: `${dirColor}15`, color: dirColor, border: `1px dashed ${dirColor}30` }}
+                  style={{ background: `${displayDirColor}15`, color: displayDirColor, border: `1px dashed ${displayDirColor}30` }}
                 >
-                  {bet.direction.toUpperCase()}
+                  {displayDir.toUpperCase()}
                 </span>
                 <span className="text-base tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
                 <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
               </div>
             </div>
 
-            {/* Stake + Pot + Odds */}
-            <div className="flex-shrink-0 flex items-end gap-3 text-right">
+            <div className="flex-shrink-0 flex items-start gap-3 text-right">
               <div>
                 <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
-                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
-                  {bet.takerStake}
-                </div>
-                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(bet.takerStake, price)}</div>}
+                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{displayStake}</div>
+                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(displayStake, price)}</div>}
               </div>
               <div>
-                <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
-                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>
-                  {pool}
-                </div>
-                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(pool, price)}</div>}
+                <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>To Win</div>
+                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{displayToWin}</div>
+                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(displayToWin, price)}</div>}
               </div>
               <div>
                 <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
-                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>
-                  {takerOdds}
-                </div>
+                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{displayOdds}</div>
               </div>
             </div>
           </div>
@@ -257,7 +269,6 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
                     <polyline points="16 6 12 2 8 6" />
                     <line x1="12" y1="2" x2="12" y2="15" />
                   </svg>
-                  Share
                 </button>
               )}
             </div>
@@ -318,12 +329,13 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
         )}
       </div>
 
-      {/* Detail modal */}
-      {showModal && (
+      {/* Detail modal — portaled to body to escape scroll container clipping */}
+      {showModal && createPortal(
         <BetDetailModal
           bet={bet}
           statLabel={statLabel}
           takerOdds={takerOdds}
+          creatorOdds={creatorOdds}
           pool={pool}
           isCreator={isCreator}
           isOpen={isOpen}
@@ -331,7 +343,8 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
           onCancel={handleCancel}
           onClose={() => setShowModal(false)}
           price={price}
-        />
+        />,
+        document.body
       )}
 
       {/* Chalk Card modal */}
@@ -342,8 +355,8 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   );
 }
 
-function BetDetailModal({ bet, statLabel, takerOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price }: {
-  bet: Bet; statLabel: string; takerOdds: string; pool: number;
+function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price }: {
+  bet: Bet; statLabel: string; takerOdds: string; creatorOdds: string; pool: number;
   isCreator: boolean; isOpen: boolean; loading: boolean;
   onCancel: () => void; onClose: () => void; price: number | null;
 }) {
@@ -385,23 +398,15 @@ function BetDetailModal({ bet, statLabel, takerOdds, pool, isCreator, isOpen, lo
             </div>
           </div>
 
-          {/* Numbers grid */}
-          <div className="flex justify-between gap-4">
-            <div className="text-center flex-1 py-2 rounded-[4px]" style={{ background: 'rgba(245,217,96,0.06)', border: '1px dashed rgba(245,217,96,0.1)' }}>
-              <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
-              <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{bet.takerStake}</div>
-              {price !== null && <div className="text-[10px] tabular-nums opacity-50 mt-0.5" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(bet.takerStake, price)}</div>}
-            </div>
-            <div className="text-center flex-1 py-2 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
-              <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
-              <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{pool}</div>
-              {price !== null && <div className="text-[10px] tabular-nums opacity-50 mt-0.5" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(pool, price)}</div>}
-            </div>
-            <div className="text-center flex-1 py-2 rounded-[4px]" style={{ background: 'rgba(93,232,138,0.06)', border: '1px dashed rgba(93,232,138,0.1)' }}>
-              <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
-              <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{takerOdds}</div>
-            </div>
+          {/* Pot */}
+          <div className="text-center py-2.5 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+            <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Total Pot</div>
+            <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{pool}</div>
+            {price !== null && <div className="text-[10px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(pool, price)}</div>}
           </div>
+
+          {/* Both sides breakdown */}
+          <BetSidesBreakdown bet={bet} pool={pool} price={price} creatorOdds={creatorOdds} takerOdds={takerOdds} />
 
           {/* Meta */}
           <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
@@ -422,6 +427,96 @@ function BetDetailModal({ bet, statLabel, takerOdds, pool, isCreator, isOpen, lo
               {loading ? '...' : 'Erase this prop'}
             </button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds }: { bet: Bet; pool: number; price: number | null; creatorOdds: string; takerOdds: string }) {
+  const counterDir = bet.direction === 'over' ? 'under' : 'over';
+  const creatorDirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
+  const takerDirColor = counterDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';
+
+  // Win percentage = stake / pool (implied probability from the odds)
+  const creatorWinPct = pool > 0 ? Math.round((bet.takerStake / pool) * 100) : 50;
+  const takerWinPct = pool > 0 ? Math.round((bet.creatorStake / pool) * 100) : 50;
+
+  // Profit if win (spread) = pool - own stake
+  const creatorProfit = pool - bet.creatorStake;
+  const takerProfit = pool - bet.takerStake;
+
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      {/* Creator side */}
+      <div className="rounded-[4px] px-3 py-3" style={{ background: 'rgba(232,228,217,0.03)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+        <div className="flex items-center gap-1.5 mb-2.5">
+          <span
+            className="px-1.5 py-px rounded-[2px] text-[8px] chalk-header tracking-wide"
+            style={{ background: `${creatorDirColor}15`, color: creatorDirColor, border: `1px dashed ${creatorDirColor}30` }}
+          >
+            {bet.direction.toUpperCase()}
+          </span>
+          <span className="text-[10px] truncate chalk-header" style={{ color: 'var(--chalk-white)' }}>
+            {bet.creatorName}
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
+            <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{bet.creatorStake}</div>
+            {price !== null && <div className="text-[9px] tabular-nums" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(bet.creatorStake, price)}</div>}
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>To Win</div>
+            <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{creatorProfit}</div>
+            {price !== null && <div className="text-[9px] tabular-nums" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(creatorProfit, price)}</div>}
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
+            <div className="text-sm tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{creatorOdds}</div>
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Win %</div>
+            <div className="text-sm tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{creatorWinPct}%</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Taker side */}
+      <div className="rounded-[4px] px-3 py-3" style={{ background: 'rgba(232,228,217,0.03)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+        <div className="flex items-center gap-1.5 mb-2.5">
+          <span
+            className="px-1.5 py-px rounded-[2px] text-[8px] chalk-header tracking-wide"
+            style={{ background: `${takerDirColor}15`, color: takerDirColor, border: `1px dashed ${takerDirColor}30` }}
+          >
+            {counterDir.toUpperCase()}
+          </span>
+          <span className="text-[10px] truncate chalk-header" style={{ color: bet.takerName ? 'var(--chalk-white)' : 'var(--chalk-ghost)' }}>
+            {bet.takerName || 'Open'}
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
+            <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{bet.takerStake}</div>
+            {price !== null && <div className="text-[9px] tabular-nums" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(bet.takerStake, price)}</div>}
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>To Win</div>
+            <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{takerProfit}</div>
+            {price !== null && <div className="text-[9px] tabular-nums" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(takerProfit, price)}</div>}
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
+            <div className="text-sm tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{takerOdds}</div>
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Win %</div>
+            <div className="text-sm tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{takerWinPct}%</div>
+          </div>
         </div>
       </div>
     </div>

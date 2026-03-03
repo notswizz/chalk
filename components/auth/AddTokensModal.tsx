@@ -29,10 +29,8 @@ import {
   coinsToRaw,
 } from '@/lib/solana';
 
-const PRESET_AMOUNTS = [100, 500, 1000];
-
 export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const { getAccessToken, wallet } = useUser();
+  const { getAccessToken, wallet, walletMismatch, savedWalletAddress } = useUser();
   const { price } = useChalkPrice();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const [amount, setAmount] = useState('500');
@@ -163,17 +161,23 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
         chain: 'solana:mainnet',
       });
 
-      const sigBytes = result.signature;
-      // Convert signature bytes to base58 string
-      const { getBase58Decoder } = await import('@solana/kit');
-      const sigString = getBase58Decoder().decode(sigBytes);
+      const sigRaw = result.signature;
+
+      // Privy may return signature as base58 string or Uint8Array
+      let sigString: string;
+      if (typeof sigRaw === 'string') {
+        sigString = sigRaw;
+      } else {
+        const { getBase58Decoder } = await import('@solana/kit');
+        sigString = getBase58Decoder().decode(sigRaw);
+      }
 
       // Verify deposit on backend
       setStatus('Verifying...');
       const token = await getAccessToken();
 
       let verified = false;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         const res = await fetch('/api/deposit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -206,6 +210,9 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
 
       if (!verified) {
         setError('Deposit sent but verification timed out. It may take a moment to reflect.');
+        setStatus('');
+        setLoading(false);
+        return;
       }
 
       setStatus('Done!');
@@ -240,74 +247,152 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
           </button>
         </div>
 
-        {onChainBalance !== null && (
-          <div className="mb-5 py-3 rounded-[4px] text-center" style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-medium)' }}>
-            <p className="text-2xl font-bold" style={{ color: 'var(--color-yellow)', fontFamily: 'var(--font-chalk-header)' }}>
-              {Math.floor(onChainBalance).toLocaleString()}
-              {price !== null && (
-                <span className="text-sm ml-1.5 opacity-50" style={{ color: 'var(--chalk-dim)' }}>
-                  (~{formatUsd(Math.floor(onChainBalance), price)})
-                </span>
-              )}
+        {/* Wallet mismatch warning */}
+        {walletMismatch && savedWalletAddress && (
+          <div
+            className="mb-4 rounded-[4px] px-4 py-3"
+            style={{ background: 'rgba(232,93,93,0.08)', border: '1px dashed rgba(232,93,93,0.25)' }}
+          >
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-red)' }}>
+              Wrong wallet connected
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--chalk-ghost)' }}>
-              CHALK in wallet ({walletAddress.slice(0, 4)}...{walletAddress.slice(-4)})
+            <p className="text-[11px]" style={{ color: 'var(--chalk-ghost)' }}>
+              Switch to {savedWalletAddress.slice(0, 4)}...{savedWalletAddress.slice(-4)} in Phantom to deposit.
             </p>
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {PRESET_AMOUNTS.map((preset) => (
-            <button
-              key={preset}
-              onClick={() => setAmount(String(preset))}
-              className="py-2.5 rounded-[4px] text-sm font-bold transition-all duration-200 cursor-pointer"
-              style={{
-                background: amount === String(preset) ? 'rgba(245,217,96,0.12)' : 'var(--dust-light)',
-                border: `1px dashed ${amount === String(preset) ? 'rgba(245,217,96,0.3)' : 'var(--dust-medium)'}`,
-                color: amount === String(preset) ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-              }}
-            >
-              {preset.toLocaleString()}
-              {price !== null && (
-                <span className="block text-[9px] opacity-50" style={{ color: 'var(--chalk-dim)' }}>
-                  ~{formatUsd(preset, price)}
-                </span>
-              )}
-            </button>
-          ))}
+        {/* Wallet balance card */}
+        {onChainBalance !== null && !walletMismatch && (
+          <div
+            className="mb-5 rounded-[4px] px-4 py-4"
+            style={{ background: 'rgba(245,217,96,0.04)', border: '1.5px dashed rgba(245,217,96,0.15)' }}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] uppercase tracking-[0.15em] chalk-header" style={{ color: 'var(--chalk-ghost)' }}>
+                Wallet Balance
+              </span>
+              <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
+                {Math.floor(onChainBalance).toLocaleString()}
+              </span>
+              <span className="text-xs chalk-header" style={{ color: 'var(--chalk-dim)' }}>CHALK</span>
+            </div>
+            {price !== null && (
+              <div className="text-sm tabular-nums mt-1" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
+                {formatUsd(Math.floor(onChainBalance), price)} USD
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Amount selection */}
+        <div className="mb-3">
+          <span className="text-[10px] uppercase tracking-[0.15em] chalk-header block mb-2" style={{ color: 'var(--chalk-ghost)' }}>
+            Amount
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { label: 'Half', value: Math.floor((onChainBalance ?? 0) / 2) },
+              { label: 'Max', value: Math.floor(onChainBalance ?? 0) },
+            ]).map(({ label, value }) => {
+              const selected = amount === String(value) && value > 0;
+              return (
+                <button
+                  key={label}
+                  onClick={() => { if (value > 0) setAmount(String(value)); }}
+                  disabled={value <= 0}
+                  className="py-3 rounded-[4px] transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    background: selected ? 'rgba(245,217,96,0.12)' : 'var(--dust-light)',
+                    border: `1.5px dashed ${selected ? 'rgba(245,217,96,0.35)' : 'rgba(232,228,217,0.1)'}`,
+                    color: selected ? 'var(--color-yellow)' : 'var(--chalk-dim)',
+                  }}
+                >
+                  <span className="text-[10px] uppercase tracking-[0.12em] chalk-header block mb-0.5" style={{ color: 'var(--chalk-ghost)' }}>
+                    {label}
+                  </span>
+                  <span className="text-base tabular-nums chalk-score block">{value.toLocaleString()}</span>
+                  {price !== null && value > 0 && (
+                    <span className="text-[10px] tabular-nums block mt-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                      {formatUsd(value, price)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
+        {/* Custom input */}
         <div className="mb-5">
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Custom amount"
-            min={1}
-            className="w-full px-3 py-2.5 rounded-[4px] text-sm outline-none"
-            style={{
-              background: 'var(--dust-light)',
-              border: '1px dashed var(--dust-medium)',
-              color: 'var(--chalk-white)',
-            }}
-          />
+          <div className="relative">
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Custom amount"
+              min={1}
+              className="w-full pl-3 pr-20 py-3 rounded-[4px] text-sm outline-none tabular-nums"
+              style={{
+                background: 'var(--dust-light)',
+                border: '1.5px dashed rgba(232,228,217,0.1)',
+                color: 'var(--chalk-white)',
+                fontFamily: 'var(--font-chalk-body)',
+              }}
+            />
+            {price !== null && amount && parseInt(amount) > 0 && (
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs tabular-nums"
+                style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}
+              >
+                {formatUsd(parseInt(amount) || 0, price)}
+              </span>
+            )}
+          </div>
         </div>
 
-        {error && <p className="text-xs mb-3" style={{ color: 'var(--color-red)' }}>{error}</p>}
-        {status && !error && <p className="text-xs mb-3" style={{ color: 'var(--color-yellow)' }}>{status}</p>}
+        {/* Status / Error */}
+        {error && (
+          <div className="mb-3 px-3 py-2 rounded-[4px]" style={{ background: 'rgba(232,93,93,0.08)', border: '1px dashed rgba(232,93,93,0.2)' }}>
+            <p className="text-xs" style={{ color: 'var(--color-red)', fontFamily: 'var(--font-chalk-body)' }}>{error}</p>
+          </div>
+        )}
+        {status && !error && (
+          <div className="mb-3 px-3 py-2 rounded-[4px]" style={{ background: 'rgba(245,217,96,0.06)', border: '1px dashed rgba(245,217,96,0.15)' }}>
+            <p className="text-xs flex items-center gap-2" style={{ color: 'var(--color-yellow)', fontFamily: 'var(--font-chalk-body)' }}>
+              {loading && <span className="inline-block w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />}
+              {status}
+            </p>
+          </div>
+        )}
 
+        {/* Deposit button */}
         <button
           onClick={handleDeposit}
-          disabled={loading || !amount}
-          className="w-full py-3 rounded-[4px] text-sm font-bold transition-all duration-200 disabled:opacity-50 cursor-pointer"
+          disabled={loading || !amount || walletMismatch}
+          className="w-full py-3.5 rounded-[4px] text-sm chalk-header tracking-wide transition-all duration-200 disabled:opacity-50 cursor-pointer"
           style={{
-            background: 'rgba(245,217,96,0.15)',
-            border: '1px dashed rgba(245,217,96,0.3)',
+            background: 'rgba(245,217,96,0.12)',
+            border: '1.5px dashed rgba(245,217,96,0.35)',
             color: 'var(--color-yellow)',
+            boxShadow: loading ? 'none' : '0 0 20px rgba(245,217,96,0.06)',
           }}
         >
-          {loading ? status || 'Processing...' : `Deposit ${amount ? parseInt(amount).toLocaleString() : '0'} CHALK${price !== null && amount ? ` (~${formatUsd(parseInt(amount) || 0, price)})` : ''}`}
+          {loading ? (status || 'Processing...') : (
+            <>
+              Deposit {amount ? parseInt(amount).toLocaleString() : '0'} CHALK
+              {price !== null && amount && parseInt(amount) > 0 && (
+                <span className="ml-1.5" style={{ color: 'var(--chalk-dim)' }}>
+                  ({formatUsd(parseInt(amount) || 0, price)})
+                </span>
+              )}
+            </>
+          )}
         </button>
       </div>
     </div>,

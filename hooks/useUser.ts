@@ -25,6 +25,8 @@ interface UserContextValue {
   setUsername: (name: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   getAccessToken: ReturnType<typeof usePrivy>['getAccessToken'];
+  savedWalletAddress: string | null;
+  walletMismatch: boolean;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -35,6 +37,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [needsUsername, setNeedsUsername] = useState(false);
+  const [savedWalletAddress, setSavedWalletAddress] = useState<string | null>(null);
 
   // Only use external wallets (Phantom, etc.) — ignore Privy embedded wallets
   // Privy embedded wallets may appear as "Privy" or "privy.io"
@@ -63,6 +66,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           avatarUrl: data.avatarUrl || privyAvatar || '',
         });
         setNeedsUsername(data.usernameSet === false);
+        setSavedWalletAddress(data.walletAddress || '');
       }
     } catch {
       // silent
@@ -75,9 +79,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (authenticated) fetchProfile();
   }, [authenticated, fetchProfile]);
 
-  // Sync wallet address to Firestore when available
+  // Sync wallet address to Firestore only when user has no saved wallet yet
   useEffect(() => {
-    if (!authenticated || !wallet?.address) return;
+    if (!authenticated || !wallet?.address || savedWalletAddress === null) return;
+    // Only save if user has no wallet stored yet
+    if (savedWalletAddress !== '') return;
     (async () => {
       try {
         const token = await getAccessToken();
@@ -86,9 +92,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ walletAddress: wallet.address }),
         });
+        setSavedWalletAddress(wallet.address);
       } catch { /* silent */ }
     })();
-  }, [authenticated, wallet?.address, getAccessToken]);
+  }, [authenticated, wallet?.address, savedWalletAddress, getAccessToken]);
 
   const setUsername = useCallback(async (username: string) => {
     if (!authenticated) return;
@@ -119,6 +126,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch { /* silent */ }
   }, [authenticated, getAccessToken, privyAvatar]);
 
+  const walletMismatch = !!(
+    wallet?.address &&
+    savedWalletAddress &&
+    wallet.address !== savedWalletAddress
+  );
+
   const value: UserContextValue = {
     user,
     wallet,
@@ -133,6 +146,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUsername,
     refreshProfile: fetchProfile,
     getAccessToken,
+    savedWalletAddress,
+    walletMismatch,
   };
 
   return React.createElement(UserContext.Provider, { value }, children);
