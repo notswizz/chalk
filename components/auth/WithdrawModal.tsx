@@ -12,6 +12,7 @@ export function WithdrawModal({ onClose, onWithdrawn }: { onClose: () => void; o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [txSignature, setTxSignature] = useState('');
+  const [confirming, setConfirming] = useState(false);
 
   const walletAddress = wallet?.address || '';
 
@@ -171,18 +172,55 @@ export function WithdrawModal({ onClose, onWithdrawn }: { onClose: () => void; o
 
         {error && <p className="text-xs mb-3" style={{ color: 'var(--color-red)' }}>{error}</p>}
 
-        <button
-          onClick={handleWithdraw}
-          disabled={loading || !amount || walletMismatch}
-          className="w-full py-3 rounded-[4px] text-sm font-bold transition-all duration-200 disabled:opacity-50 cursor-pointer"
-          style={{
-            background: 'rgba(245,217,96,0.15)',
-            border: '1px dashed rgba(245,217,96,0.3)',
-            color: 'var(--color-yellow)',
-          }}
-        >
-          {loading ? 'Sending...' : 'Withdraw'}
-        </button>
+        {confirming && !loading ? (
+          <div
+            className="mb-3 rounded-[4px] px-4 py-3"
+            style={{ background: 'rgba(245,217,96,0.06)', border: '1px dashed rgba(245,217,96,0.2)' }}
+          >
+            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--chalk-white)' }}>
+              Confirm withdrawal of {parseInt(amount).toLocaleString()} CHALK{price !== null ? ` (~${formatUsd(parseInt(amount) || 0, price)})` : ''}?
+            </p>
+            <p className="text-[10px] mb-3" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+              This cannot be undone. Tokens will be sent to {(savedWalletAddress || walletAddress).slice(0, 6)}...{(savedWalletAddress || walletAddress).slice(-4)}.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleWithdraw}
+                className="flex-1 py-2.5 rounded-[4px] text-sm font-bold cursor-pointer transition-all"
+                style={{ background: 'rgba(245,217,96,0.15)', border: '1px dashed rgba(245,217,96,0.35)', color: 'var(--color-yellow)' }}
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                className="flex-1 py-2.5 rounded-[4px] text-sm font-bold cursor-pointer transition-all"
+                style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-ghost)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              const numAmount = parseInt(amount, 10);
+              if (!numAmount || numAmount < 10) { setError('Minimum withdrawal is 10 CHALK'); return; }
+              if (numAmount > (profile?.coins ?? 0)) { setError('Insufficient balance'); return; }
+              if (!walletAddress) { setError('No wallet connected'); return; }
+              setError('');
+              setConfirming(true);
+            }}
+            disabled={loading || !amount || walletMismatch}
+            className="w-full py-3 rounded-[4px] text-sm font-bold transition-all duration-200 disabled:opacity-50 cursor-pointer"
+            style={{
+              background: 'rgba(245,217,96,0.15)',
+              border: '1px dashed rgba(245,217,96,0.3)',
+              color: 'var(--color-yellow)',
+            }}
+          >
+            {loading ? 'Sending...' : 'Withdraw'}
+          </button>
+        )}
       </div>
     </div>,
     document.body
