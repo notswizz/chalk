@@ -76,6 +76,82 @@ export async function fetchAllGames(): Promise<Game[]> {
   });
 }
 
+/** Stat mapping from our bet stat keys to ESPN stats array indices / parsing */
+const STAT_EXTRACTORS: Record<string, (stats: string[]) => number> = {
+  points: (s) => parseInt(s[1]) || 0,
+  rebounds: (s) => parseInt(s[5]) || 0,
+  assists: (s) => parseInt(s[6]) || 0,
+  threes: (s) => parseInt(s[3]?.split('-')[0]) || 0,
+};
+
+export interface PlayerBoxScore {
+  name: string;
+  stats: Record<string, number>;
+}
+
+/**
+ * Fetch player box scores for a finished game from ESPN.
+ * Returns a map of normalized player name → stats.
+ */
+export async function fetchPlayerBoxScore(gameId: string): Promise<PlayerBoxScore[]> {
+  const res = await fetch(
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`,
+    { cache: 'no-store' }
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+
+  const teams = data.boxscore?.players ?? [];
+  const players: PlayerBoxScore[] = [];
+
+  for (const team of teams) {
+    const athletes = team.statistics?.[0]?.athletes ?? [];
+    for (const a of athletes) {
+      if (a.didNotPlay || !a.active || !a.stats?.length) continue;
+      const name: string = a.athlete?.displayName ?? '';
+      if (!name) continue;
+
+      const extracted: Record<string, number> = {};
+      for (const [key, extractor] of Object.entries(STAT_EXTRACTORS)) {
+        extracted[key] = extractor(a.stats);
+      }
+      players.push({ name, stats: extracted });
+    }
+  }
+
+  return players;
+}
+
+/**
+ * Find a player's stat value from box score data.
+ * Uses case-insensitive substring matching to handle name variations.
+ */
+export function findPlayerStat(
+  players: PlayerBoxScore[],
+  playerName: string,
+  stat: string
+): number | null {
+  const normalized = playerName.toLowerCase().trim();
+
+  // Try exact match first
+  let match = players.find((p) => p.name.toLowerCase() === normalized);
+
+  // Try last name match
+  if (!match) {
+    const lastName = normalized.split(' ').pop() ?? '';
+    const lastNameMatches = players.filter((p) => p.name.toLowerCase().split(' ').pop() === lastName);
+    if (lastNameMatches.length === 1) match = lastNameMatches[0];
+  }
+
+  // Try substring match
+  if (!match) {
+    match = players.find((p) => p.name.toLowerCase().includes(normalized) || normalized.includes(p.name.toLowerCase()));
+  }
+
+  if (!match) return null;
+  return match.stats[stat] ?? null;
+}
+
 export async function fetchGameById(gameId: string): Promise<Game | null> {
   // Fetch the single game summary directly instead of loading all games
   try {

@@ -5,9 +5,18 @@ import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 
 interface PlayerInfo {
+  id: string;
   name: string;
   position: string;
   jersey: string;
+}
+
+interface SeasonAverages {
+  points: number;
+  rebounds: number;
+  assists: number;
+  threes: number;
+  season: string;
 }
 
 const STATS = [
@@ -43,11 +52,13 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
   const { getAccessToken, profile } = useUser();
   const { price } = useChalkPrice();
   const [player, setPlayer] = useState('');
+  const [playerId, setPlayerId] = useState('');
   const [playersByTeam, setPlayersByTeam] = useState<Record<string, PlayerInfo[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
   const playerInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const [stat, setStat] = useState('points');
+  const [averages, setAverages] = useState<SeasonAverages | null>(null);
   const [target, setTarget] = useState('');
   const [direction, setDirection] = useState<'over' | 'under'>('over');
   const [stake, setStake] = useState('');
@@ -63,6 +74,15 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
       .then((d) => setPlayersByTeam(d.byTeam ?? {}))
       .catch(() => {});
   }, [teams]);
+
+  // Fetch season averages when player is selected
+  useEffect(() => {
+    if (!playerId) { setAverages(null); return; }
+    fetch(`/api/players/averages?id=${playerId}`)
+      .then((r) => r.json())
+      .then((d) => setAverages(d.averages ?? null))
+      .catch(() => setAverages(null));
+  }, [playerId]);
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -173,7 +193,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
                   ref={playerInputRef}
                   type="text"
                   value={player}
-                  onChange={(e) => { setPlayer(e.target.value); setShowSuggestions(true); }}
+                  onChange={(e) => { setPlayer(e.target.value); setPlayerId(''); setShowSuggestions(true); }}
                   onFocus={() => setShowSuggestions(true)}
                   placeholder={hasPlayers ? 'Search player...' : 'e.g. LeBron James'}
                   className="input-field w-full"
@@ -205,6 +225,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
                             onMouseDown={(e) => {
                               e.preventDefault();
                               setPlayer(p.name);
+                              setPlayerId(p.id);
                               setShowSuggestions(false);
                             }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--dust-light)'; }}
@@ -250,6 +271,24 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
                 />
               </Field>
             </div>
+
+            {/* Season average hint */}
+            {averages && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-[4px]"
+                style={{ background: 'rgba(245,217,96,0.04)', border: '1px dashed rgba(245,217,96,0.1)' }}
+              >
+                <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                  {averages.season} avg:
+                </span>
+                <span className="text-sm tabular-nums font-bold" style={{ color: 'var(--color-yellow)' }}>
+                  {averages[stat as keyof SeasonAverages]}
+                </span>
+                <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                  {STATS.find((s) => s.value === stat)?.label?.toLowerCase() ?? stat} per game
+                </span>
+              </div>
+            )}
 
             {/* Direction */}
             <Field label="Direction">

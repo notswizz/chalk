@@ -147,7 +147,7 @@ export default function ActivityPage() {
               const userDir = isCreator ? bet.direction : (bet.direction === 'over' ? 'under' : 'over');
               const dirColor = userDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';
               const stake = isCreator ? bet.creatorStake : bet.takerStake;
-              const toWin = (bet.creatorStake + bet.takerStake) - stake;
+              const totalPot = bet.creatorStake + bet.takerStake;
               const opponent = isCreator ? bet.takerName : bet.creatorName;
 
               return (
@@ -177,7 +177,7 @@ export default function ActivityPage() {
                       </div>
                       {outcome === 'won' && (
                         <span className="text-[10px] chalk-header" style={{ color: 'var(--color-green)' }}>
-                          +{toWin}
+                          +{totalPot - stake}
                         </span>
                       )}
                       {outcome === 'lost' && (
@@ -231,12 +231,12 @@ export default function ActivityPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>To Win</div>
+                        <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
                         <div className="text-sm tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>
-                          {toWin.toLocaleString()}
+                          {totalPot.toLocaleString()}
                           {price !== null && (
                             <span className="text-[9px] ml-1 opacity-50" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
-                              {formatUsd(toWin, price)}
+                              {formatUsd(totalPot, price)}
                             </span>
                           )}
                         </div>

@@ -28,6 +28,7 @@ export function TopNav() {
             <NavLink href="/" label="Games" active={pathname === '/'} />
             <NavLink href="/bets" label="The Board" active={pathname === '/bets'} />
             <NavLink href="/activity" label="Activity" active={pathname === '/activity'} />
+            <NavLink href="/leaderboard" label="Leaderboard" active={pathname === '/leaderboard'} />
             <NavLink href="/clips" label="Clips" active={pathname === '/clips' || pathname.startsWith('/clip/')} />
             <NavLink href="/buy" label="Buy CHALK" active={pathname === '/buy'} />
           </nav>

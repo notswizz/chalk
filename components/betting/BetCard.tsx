@@ -2,15 +2,9 @@
 
 import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChalkCardModal } from '@/components/chalk-cards/ChalkCardModal';
-
-interface Validation {
-  userId: string;
-  actualValue: number;
-  timestamp: number;
-}
 
 export interface Bet {
   id: string;
@@ -30,7 +24,6 @@ export interface Bet {
   status: string;
   result?: string;
   actualValue?: number;
-  validations?: Validation[];
   createdAt: number;
 }
 
@@ -46,10 +39,7 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   const { price } = useChalkPrice();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showValidate, setShowValidate] = useState(false);
   const [showChalkCard, setShowChalkCard] = useState(false);
-  const [actualValue, setActualValue] = useState('');
-  const [validateError, setValidateError] = useState('');
 
   const isCreator = userId === bet.creatorId;
   const isTaker = userId === bet.takerId;
@@ -58,11 +48,6 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   const isMatched = bet.status === 'matched';
   const isSettled = bet.status === 'settled';
   const isCancelled = bet.status === 'cancelled';
-
-  const validations = bet.validations ?? [];
-  const validationCount = validations.length;
-  const alreadyValidated = validations.some((v) => v.userId === userId);
-  const canValidate = isMatched && !!gameOver && !isParticipant && !alreadyValidated && authenticated;
 
   const statLabel = STAT_LABELS[bet.stat] || bet.stat;
 
@@ -109,33 +94,6 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
     finally { setLoading(false); }
   }
 
-  async function handleValidate() {
-    if (!authenticated) { login(); return; }
-    setValidateError('');
-    const val = Number(actualValue);
-    if (isNaN(val) || actualValue.trim() === '') {
-      setValidateError('Enter the actual stat value');
-      return;
-    }
-    setLoading(true);
-    try {
-      const token = await getAccessToken();
-      const res = await fetch('/api/bets/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ betId: bet.id, actualValue: val }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setValidateError(data.error || 'Failed to score check');
-      } else {
-        setShowValidate(false);
-        onUpdate();
-      }
-    } catch { setValidateError('Failed to score check'); }
-    finally { setLoading(false); }
-  }
-
   const pool = bet.creatorStake + bet.takerStake;
   const counterDir = bet.direction === 'over' ? 'under' : 'over';
 
@@ -148,72 +106,67 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   const displayDir = showTakerSide ? counterDir : bet.direction;
   const displayDirColor = displayDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';
   const displayStake = showTakerSide ? bet.takerStake : bet.creatorStake;
-  const displayToWin = pool - displayStake;
   const displayOdds = showTakerSide ? takerOdds : creatorOdds;
 
   return (
     <>
       <div
-        className="chalk-card rounded-[4px] overflow-hidden transition-all duration-200 cursor-pointer"
+        className="chalk-card rounded-[4px] overflow-hidden transition-all duration-200 cursor-pointer flex flex-col"
         style={{
           opacity: isSettled || isCancelled ? 0.65 : 1,
           ...(isParticipant ? { border: '1.5px dashed rgba(245,217,96,0.35)', boxShadow: '0 0 12px rgba(245,217,96,0.06)' } : {}),
         }}
         onClick={() => setShowModal(true)}
       >
-        <div className="px-3 py-2.5">
-          {/* Top meta row */}
-          {(showGame && bet.gameTitle || isParticipant) && (
-            <div className="flex items-center gap-2 mb-1.5">
-              {showGame && bet.gameTitle && (
-                <span className="text-[9px] truncate" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{bet.gameTitle}</span>
-              )}
-              {isParticipant && (
-                <span className="text-[8px] chalk-header tracking-[0.15em] flex-shrink-0" style={{ color: 'var(--color-yellow)' }}>YOUR BET</span>
-              )}
-            </div>
+        <div className="px-3 py-2.5 flex flex-col flex-1">
+          {/* Header: status + game */}
+          <div className="flex items-center justify-between mb-2">
+            <StatusBadge status={bet.status} gameOver={gameOver} isMatched={isMatched} />
+            {isParticipant && (
+              <span className="text-[8px] chalk-header tracking-[0.15em]" style={{ color: 'var(--color-yellow)' }}>YOUR BET</span>
+            )}
+          </div>
+
+          {showGame && bet.gameTitle && (
+            <div className="text-[9px] truncate mb-1.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{bet.gameTitle}</div>
           )}
 
-          {/* Main row: player + prop on left, stake/to-win on right */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm truncate chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.player}</span>
-                <StatusBadge status={bet.status} gameOver={gameOver} isMatched={isMatched} />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="px-1.5 py-px rounded-[3px] text-[10px] chalk-header tracking-wide"
-                  style={{ background: `${displayDirColor}15`, color: displayDirColor, border: `1px dashed ${displayDirColor}30` }}
-                >
-                  {displayDir.toUpperCase()}
-                </span>
-                <span className="text-base tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
-                <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
-              </div>
-            </div>
+          {/* Player name */}
+          <div className="text-sm chalk-header truncate mb-1.5" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
 
-            <div className="flex-shrink-0 flex items-start gap-3 text-right">
-              <div>
-                <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
-                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{displayStake}</div>
-                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(displayStake, price)}</div>}
-              </div>
-              <div>
-                <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>To Win</div>
-                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{displayToWin}</div>
-                {price !== null && <div className="text-[9px] tabular-nums opacity-50" style={{ color: 'var(--chalk-dim)' }}>{formatUsd(displayToWin, price)}</div>}
-              </div>
-              <div>
-                <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
-                <div className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{displayOdds}</div>
-              </div>
+          {/* Prop line: direction + target + stat */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <span
+              className="px-1.5 py-px rounded-[3px] text-[10px] chalk-header tracking-wide"
+              style={{ background: `${displayDirColor}15`, color: displayDirColor, border: `1px dashed ${displayDirColor}30` }}
+            >
+              {displayDir.toUpperCase()}
+            </span>
+            <span className="text-lg tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
+            <span className="text-[11px] chalk-header tracking-wide" style={{ color: 'var(--chalk-dim)' }}>{statLabel}</span>
+          </div>
+
+          {/* Numbers row: Stake / Total Pot / Odds */}
+          <div className="flex items-start justify-between gap-1 mt-auto">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
+              <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{displayStake}</div>
+              {price !== null && <div className="text-[10px] tabular-nums" style={{ color: 'var(--chalk-ghost)' }}>{formatUsd(displayStake, price)}</div>}
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
+              <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{pool}</div>
+              {price !== null && <div className="text-[10px] tabular-nums" style={{ color: 'var(--chalk-ghost)' }}>{formatUsd(pool, price)}</div>}
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
+              <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{displayOdds}</div>
             </div>
           </div>
 
           {/* Settled result */}
           {isSettled && bet.actualValue != null && (
-            <div className="mt-2 flex items-center gap-1.5 text-[10px]" style={{ fontFamily: 'var(--font-chalk-body)' }}>
+            <div className="mt-2 flex items-center gap-1.5 text-[10px] flex-wrap" style={{ fontFamily: 'var(--font-chalk-body)' }}>
               <span style={{ color: 'var(--chalk-ghost)' }}>Actual:</span>
               <span className="tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.actualValue} {statLabel}</span>
               <span style={{ color: 'var(--chalk-ghost)' }}>&rarr;</span>
@@ -222,111 +175,51 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
               </span>
             </div>
           )}
-
-          {/* Footer row */}
-          <div className="flex items-center justify-end mt-2 pt-2 chalk-stroke-top">
-            <div className="flex items-center gap-1.5">
-              {isOpen && !isCreator && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleTake(); }}
-                  disabled={loading}
-                  className="chalk-btn chalk-btn-accent px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer disabled:opacity-50"
-                >
-                  {loading ? '...' : `Take ${counterDir.toUpperCase()} ${bet.takerStake}`}
-                </button>
-              )}
-
-              {isMatched && gameOver && (
-                <AutoSettleCountdown betId={bet.id} />
-              )}
-
-              {isMatched && (
-                <ValidationSection
-                  gameOver={gameOver}
-                  validationCount={validationCount}
-                  canValidate={canValidate}
-                  alreadyValidated={alreadyValidated}
-                  showValidate={showValidate}
-                  setShowValidate={setShowValidate}
-                  isParticipant={isParticipant}
-                  authenticated={authenticated}
-                  login={login}
-                />
-              )}
-
-              {isSettled && (
-                <span className="text-[9px] chalk-header tracking-wider" style={{ color: 'var(--chalk-ghost)' }}>WIPED</span>
-              )}
-
-              {authenticated && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowChalkCard(true); }}
-                  className="chalk-btn px-2 py-1 rounded-[3px] text-[10px] chalk-header cursor-pointer flex items-center gap-1"
-                  style={{ background: 'rgba(245,217,96,0.12)', border: '1px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
-                >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-                    <polyline points="16 6 12 2 8 6" />
-                    <line x1="12" y1="2" x2="12" y2="15" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
         </div>
 
-        {/* Validate form (expanded) */}
-        {showValidate && (
-          <div className="px-3 pb-2.5" onClick={(e) => e.stopPropagation()}>
-            <div className="p-2.5 rounded-[4px]" style={{ background: 'rgba(245,217,96,0.04)', border: '1px dashed rgba(245,217,96,0.1)' }}>
-              <div className="text-[9px] chalk-header uppercase tracking-wider mb-2" style={{ color: 'rgba(245,217,96,0.6)' }}>
-                What did {bet.player} finish with?
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={actualValue}
-                  onChange={(e) => { setActualValue(e.target.value); setValidateError(''); }}
-                  placeholder={`Actual ${statLabel}`}
-                  step="1"
-                  className="input-field flex-1 !py-1.5 !text-sm"
-                />
-                <button
-                  onClick={handleValidate}
-                  disabled={loading}
-                  className="chalk-btn chalk-btn-accent px-3 py-1.5 rounded-[4px] text-[10px] chalk-header cursor-pointer disabled:opacity-50"
-                >
-                  {loading ? '...' : 'Submit'}
-                </button>
-                <button
-                  onClick={() => setShowValidate(false)}
-                  className="p-1.5 rounded-[4px] cursor-pointer"
-                  style={{ color: 'var(--chalk-ghost)' }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              {actualValue && !isNaN(Number(actualValue)) && (
-                <div className="flex items-center gap-1.5 mt-2 text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                  <span className="tabular-nums">{Number(actualValue)} {statLabel}</span>
-                  <span>&rarr;</span>
-                  <span className="tabular-nums">target {bet.target}</span>
-                  <span>&rarr;</span>
-                  {Number(actualValue) === bet.target ? (
-                    <span style={{ color: 'var(--chalk-dim)' }}>Push</span>
-                  ) : Number(actualValue) > bet.target ? (
-                    <span style={{ color: 'var(--color-green)' }}>OVER &rarr; {bet.direction === 'over' ? bet.creatorName : bet.takerName} wins</span>
-                  ) : (
-                    <span style={{ color: 'var(--color-red)' }}>UNDER &rarr; {bet.direction === 'under' ? bet.creatorName : bet.takerName} wins</span>
-                  )}
-                </div>
-              )}
-              {validateError && <p className="text-[10px] mt-1.5" style={{ color: 'var(--color-red)', fontFamily: 'var(--font-chalk-body)' }}>{validateError}</p>}
-            </div>
+        {/* Footer */}
+        <div className="px-3 py-2 chalk-stroke-top flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {isMatched && !gameOver && (
+              <span className="flex items-center gap-1 text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+                </svg>
+                Settles at final
+              </span>
+            )}
+            {isMatched && gameOver && (
+              <span className="text-[9px] chalk-header tracking-wider" style={{ color: 'var(--color-yellow)' }}>SETTLING...</span>
+            )}
+            {isSettled && (
+              <span className="text-[9px] chalk-header tracking-wider" style={{ color: 'var(--chalk-ghost)' }}>WIPED</span>
+            )}
           </div>
-        )}
+          <div className="flex items-center gap-1.5">
+            {isOpen && !isCreator && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleTake(); }}
+                disabled={loading}
+                className="chalk-btn chalk-btn-accent px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer disabled:opacity-50"
+              >
+                {loading ? '...' : `Take ${counterDir.toUpperCase()} ${bet.takerStake}`}
+              </button>
+            )}
+            {authenticated && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowChalkCard(true); }}
+                className="chalk-btn px-2 py-1 rounded-[3px] text-[10px] chalk-header cursor-pointer flex items-center gap-1"
+                style={{ background: 'rgba(245,217,96,0.12)', border: '1px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Detail modal — portaled to body to escape scroll container clipping */}
@@ -544,7 +437,7 @@ export function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds, is
 function StatusBadge({ status, gameOver, isMatched }: { status: string; gameOver?: boolean; isMatched: boolean }) {
   const config: Record<string, { color: string; label: string }> = {
     open: { color: 'var(--color-green)', label: 'OPEN' },
-    matched: { color: 'var(--color-yellow)', label: isMatched && gameOver ? 'SCORE CHECK' : 'LIVE' },
+    matched: { color: 'var(--color-yellow)', label: isMatched && gameOver ? 'FINAL' : 'LIVE' },
     settled: { color: 'var(--chalk-dim)', label: 'WIPED' },
     cancelled: { color: 'var(--chalk-ghost)', label: 'ERASED' },
   };
@@ -553,111 +446,5 @@ function StatusBadge({ status, gameOver, isMatched }: { status: string; gameOver
     <span className="flex-shrink-0 text-[8px] chalk-header tracking-[0.15em]" style={{ color: c.color }}>
       {c.label}
     </span>
-  );
-}
-
-function ValidationSection({
-  gameOver, validationCount, canValidate, alreadyValidated, showValidate, setShowValidate, isParticipant, authenticated, login,
-}: {
-  gameOver?: boolean; validationCount: number; canValidate: boolean; alreadyValidated: boolean;
-  showValidate: boolean; setShowValidate: (v: boolean) => void; isParticipant: boolean; authenticated: boolean; login: () => void;
-}) {
-  if (!gameOver) {
-    return (
-      <span className="flex items-center gap-1 text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-        </svg>
-        After buzzer
-      </span>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex gap-[2px]">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="w-[5px] h-[5px] rounded-full"
-            style={{ background: i < validationCount ? 'var(--color-yellow)' : 'var(--dust-medium)' }}
-          />
-        ))}
-      </div>
-
-      {canValidate && !showValidate && (
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowValidate(true); }}
-          className="chalk-btn chalk-btn-accent px-2 py-0.5 rounded-[3px] text-[9px] chalk-header cursor-pointer"
-        >
-          Check
-        </button>
-      )}
-
-      {gameOver && !isParticipant && !authenticated && !showValidate && (
-        <button
-          onClick={(e) => { e.stopPropagation(); login(); }}
-          className="chalk-btn chalk-btn-accent px-2 py-0.5 rounded-[3px] text-[9px] chalk-header cursor-pointer"
-        >
-          Check
-        </button>
-      )}
-
-      {alreadyValidated && (
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--color-green)" strokeWidth="3">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-      )}
-    </div>
-  );
-}
-
-const AUTO_SETTLE_MS = 30 * 60 * 1000;
-
-function AutoSettleCountdown({ betId }: { betId: string }) {
-  const [remaining, setRemaining] = useState<number | null>(null);
-
-  useEffect(() => {
-    const key = `autosettle-${betId}`;
-    let startTime = Number(localStorage.getItem(key));
-    if (!startTime) {
-      startTime = Date.now();
-      localStorage.setItem(key, String(startTime));
-    }
-
-    function tick() {
-      const elapsed = Date.now() - startTime;
-      const left = Math.max(0, AUTO_SETTLE_MS - elapsed);
-      setRemaining(left);
-    }
-
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [betId]);
-
-  if (remaining === null) return null;
-
-  const mins = Math.floor(remaining / 60000);
-  const secs = Math.floor((remaining % 60000) / 1000);
-  const isComplete = remaining === 0;
-
-  return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-[3px]"
-      style={{ background: isComplete ? 'rgba(93,232,138,0.08)' : 'rgba(232,228,217,0.04)' }}
-    >
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-        style={{ color: isComplete ? 'var(--color-green)' : 'var(--chalk-ghost)' }}
-      >
-        <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-      </svg>
-      {isComplete ? (
-        <span className="text-[9px]" style={{ color: 'var(--color-green)', fontFamily: 'var(--font-chalk-body)' }}>Auto-settling</span>
-      ) : (
-        <span className="countdown-tick text-[9px]" style={{ color: 'var(--chalk-dim)' }}>
-          {mins}<span className="countdown-colon">:</span>{secs.toString().padStart(2, '0')}
-        </span>
-      )}
-    </div>
   );
 }

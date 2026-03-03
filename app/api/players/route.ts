@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 interface PlayerInfo {
+  id: string;
   name: string;
   position: string;
   jersey: string;
@@ -22,6 +23,7 @@ async function fetchRoster(teamAbbr: string): Promise<PlayerInfo[]> {
     const data = await res.json();
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const players: PlayerInfo[] = (data.athletes ?? []).map((a: any) => ({
+      id: a.id ?? '',
       name: a.fullName ?? a.displayName ?? '',
       position: a.position?.abbreviation ?? '',
       jersey: a.jersey ?? '',

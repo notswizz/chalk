@@ -93,7 +93,7 @@ export default function BetsPage() {
   const activeTab = TABS.find((t) => t.key === tab)!;
 
   return (
-    <div className="pinned-header-layout max-w-3xl mx-auto px-4">
+    <div className="pinned-header-layout max-w-5xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="pinned-header pt-8 pb-4">
         <div className="flex items-center justify-between">
@@ -195,15 +195,15 @@ export default function BetsPage() {
       {/* ─── Scrollable Content ─── */}
       <div className="pinned-scroll scrollbar-hide">
         {loading ? (
-          <div className="space-y-2.5">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="shimmer rounded-[4px] h-[120px]" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="shimmer rounded-[4px] h-[200px]" />
             ))}
           </div>
         ) : filteredBets.length === 0 ? (
           <EmptyState tab={tab} mineOnly={mineOnly} />
         ) : (
-          <div className="space-y-2.5 fade-up">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
             {filteredBets.map((bet) => (
               <BetCard
                 key={bet.id}
