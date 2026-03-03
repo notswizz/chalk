@@ -18,6 +18,8 @@ export default function BetsPage() {
   const [gameStates, setGameStates] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const autoSettledGames = useRef<Set<string>>(new Set());
+  const [filterStat, setFilterStat] = useState<string>('all');
+  const [filterGame, setFilterGame] = useState<string>('all');
 
   const fetchBets = useCallback(async () => {
     setLoading(true);
@@ -79,9 +81,14 @@ export default function BetsPage() {
 
   useEffect(() => { fetchBets(); }, [fetchBets]);
 
-  const filteredBets = mineOnly && userId
-    ? bets.filter((b) => b.creatorId === userId || b.takerId === userId)
-    : bets;
+  // Derive unique stats and games for filter dropdowns
+  const statOptions = [...new Set(bets.map((b) => b.stat))].sort();
+  const gameOptions = [...new Set(bets.filter((b) => b.gameTitle).map((b) => b.gameTitle!))].sort();
+
+  const filteredBets = bets
+    .filter((b) => !mineOnly || !userId || b.creatorId === userId || b.takerId === userId)
+    .filter((b) => filterStat === 'all' || b.stat === filterStat)
+    .filter((b) => filterGame === 'all' || b.gameTitle === filterGame);
 
   const activeTab = TABS.find((t) => t.key === tab)!;
 
@@ -132,6 +139,57 @@ export default function BetsPage() {
             ))}
           </div>
         </div>
+
+        {/* Filters */}
+        {bets.length > 0 && (
+          <div className="flex items-center gap-2 mt-3">
+            {statOptions.length >= 1 && (
+              <select
+                value={filterStat}
+                onChange={(e) => setFilterStat(e.target.value)}
+                className="px-2.5 py-1.5 rounded-[4px] text-[11px] chalk-header cursor-pointer outline-none"
+                style={{
+                  background: filterStat !== 'all' ? 'rgba(245,217,96,0.12)' : 'var(--dust-light)',
+                  border: `1px dashed ${filterStat !== 'all' ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
+                  color: filterStat !== 'all' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                }}
+              >
+                <option value="all" style={{ background: 'var(--board-dark)' }}>All Stats</option>
+                {statOptions.map((s) => (
+                  <option key={s} value={s} style={{ background: 'var(--board-dark)' }}>
+                    {{ points: 'Points', rebounds: 'Rebounds', assists: 'Assists', threes: '3-Pointers' }[s] || s}
+                  </option>
+                ))}
+              </select>
+            )}
+            {gameOptions.length >= 1 && (
+              <select
+                value={filterGame}
+                onChange={(e) => setFilterGame(e.target.value)}
+                className="px-2.5 py-1.5 rounded-[4px] text-[11px] chalk-header cursor-pointer outline-none truncate max-w-[200px]"
+                style={{
+                  background: filterGame !== 'all' ? 'rgba(245,217,96,0.12)' : 'var(--dust-light)',
+                  border: `1px dashed ${filterGame !== 'all' ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
+                  color: filterGame !== 'all' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                }}
+              >
+                <option value="all" style={{ background: 'var(--board-dark)' }}>All Games</option>
+                {gameOptions.map((g) => (
+                  <option key={g} value={g} style={{ background: 'var(--board-dark)' }}>{g}</option>
+                ))}
+              </select>
+            )}
+            {(filterStat !== 'all' || filterGame !== 'all') && (
+              <button
+                onClick={() => { setFilterStat('all'); setFilterGame('all'); }}
+                className="text-[10px] px-2 py-1 rounded-[4px] cursor-pointer transition-all"
+                style={{ color: 'var(--chalk-ghost)', border: '1px dashed var(--dust-medium)' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ─── Scrollable Content ─── */}

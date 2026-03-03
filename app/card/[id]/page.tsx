@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const title = `${card.player} ${card.direction.toUpperCase()} ${card.target} ${statLabel}`;
   const description = `${card.userName} has ${card.player} ${card.direction} ${card.target} ${statLabel} on the board. ${card.gameTitle || ''}`.trim();
   const baseUrl = getBaseUrl();
-  const playerUrl = `${baseUrl}/card/${id}/embed`;
+  const playerUrl = `${baseUrl}/api/card-embed/${id}`;
 
   const dimensions = card.format === 'story'
     ? { width: 720, height: 1280 }
