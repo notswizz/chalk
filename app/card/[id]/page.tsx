@@ -28,8 +28,6 @@ async function getCard(id: string): Promise<ChalkCard | null> {
 }
 
 function getBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return 'https://chalkstreams.vercel.app';
 }
 
@@ -45,13 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const title = `${card.player} ${card.direction.toUpperCase()} ${card.target} ${statLabel}`;
   const description = `${card.userName} has ${card.player} ${card.direction} ${card.target} ${statLabel} on the board. ${card.gameTitle || ''}`.trim();
   const baseUrl = getBaseUrl();
-  const playerUrl = `${baseUrl}/api/card-embed/${id}`;
-
-  const dimensions = card.format === 'story'
-    ? { width: 720, height: 1280 }
-    : card.format === 'square'
-    ? { width: 1080, height: 1080 }
-    : { width: 1280, height: 720 };
+  const ogImage = `${baseUrl}/api/og-card/${id}`;
 
   return {
     title: `${title} | Chalk`,
@@ -61,27 +53,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       description,
       type: 'website',
       url: `${baseUrl}/card/${id}`,
-      videos: [
-        {
-          url: card.url,
-          width: dimensions.width,
-          height: dimensions.height,
-          type: 'video/webm',
-        },
-      ],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
     twitter: {
-      card: 'player',
+      card: 'summary_large_image',
       title,
       description,
-      players: [
-        {
-          playerUrl,
-          streamUrl: card.url,
-          width: dimensions.width,
-          height: dimensions.height,
-        },
-      ],
+      images: [ogImage],
     },
   };
 }
