@@ -24,8 +24,11 @@ const chalkMono = Indie_Flower({
 });
 
 export const metadata: Metadata = {
-  title: 'Chalk',
-  description: 'Live sports streams and props on the board.',
+  title: {
+    default: 'Chalk — Live Sports Props on the Board',
+    template: '%s | Chalk',
+  },
+  description: 'Watch live sports, draw up player props, and bet with CHALK tokens. Real games. Real stakes. On the board.',
   manifest: '/manifest.json',
   icons: {
     icon: '/chalk-logo.png',
@@ -35,6 +38,21 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Chalk',
+  },
+  metadataBase: new URL('https://chalkstreams.vercel.app'),
+  openGraph: {
+    type: 'website',
+    siteName: 'Chalk',
+    title: 'Chalk — Live Sports Props on the Board',
+    description: 'Watch live sports, draw up player props, and bet with CHALK tokens.',
+    url: 'https://chalkstreams.vercel.app',
+    images: [{ url: '/chalk-logo.png', width: 512, height: 512, alt: 'Chalk' }],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Chalk — Live Sports Props on the Board',
+    description: 'Watch live sports, draw up player props, and bet with CHALK tokens.',
+    images: ['/chalk-logo.png'],
   },
 };
 
