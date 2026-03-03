@@ -22,7 +22,6 @@ import {
 } from '@solana-program/token-2022';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 import {
-  CHALK_MINT,
   CHALK_MINT_ADDRESS,
   CHALK_DECIMALS,
   OWNER_WALLET_ADDRESS,
@@ -44,33 +43,32 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
   const fetchBalance = useCallback(async () => {
     if (!walletAddress) return;
     try {
-      // Use direct RPC fetch — more reliable than kit wrapper
+      // Derive the user's ATA address directly — avoids expensive getTokenAccountsByOwner
+      const [userAta] = await findAssociatedTokenPda({
+        owner: address(walletAddress),
+        tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+        mint: CHALK_MINT_ADDRESS,
+      });
+
       const res = await fetch('/api/solana-rpc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 1,
-          method: 'getTokenAccountsByOwner',
-          params: [
-            walletAddress,
-            { mint: CHALK_MINT },
-            { encoding: 'jsonParsed' },
-          ],
+          method: 'getTokenAccountBalance',
+          params: [userAta.toString()],
         }),
       });
       const data = await res.json();
-      const accounts = data.result?.value || [];
-      if (accounts.length > 0) {
-        const parsed = accounts[0].account.data.parsed.info;
-        const amt = Number(parsed.tokenAmount.uiAmount ?? 0);
-        setOnChainBalance(amt);
-      } else {
+      if (data.error) {
+        // Account doesn't exist = 0 balance
         setOnChainBalance(0);
+        return;
       }
+      setOnChainBalance(Number(data.result?.value?.uiAmount ?? 0));
     } catch (e) {
       console.error('[Deposit] Balance fetch failed:', e);
-      setOnChainBalance(0);
     }
   }, [walletAddress]);
 

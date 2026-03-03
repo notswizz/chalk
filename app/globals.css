@@ -282,7 +282,7 @@ body {
 /* ─── Card hover glow — chalk dust highlight ─── */
 .card-glow {
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .card-glow::before {
@@ -306,10 +306,10 @@ body {
 }
 
 .card-glow:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.005);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 20px rgba(245, 217, 96, 0.04);
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(245, 217, 96, 0.06);
 }
 
 /* ─── Live card left border glow ─── */
@@ -319,6 +319,29 @@ body {
     -4px 0 16px var(--live-glow),
     inset 0 2px 8px rgba(0, 0, 0, 0.4),
     inset 0 -1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Live card — pulsing border glow on all sides ─── */
+@keyframes live-border-pulse {
+  0%, 100% {
+    border-color: rgba(245, 217, 96, 0.3);
+    box-shadow:
+      0 0 12px rgba(245, 217, 96, 0.08),
+      inset 0 2px 8px rgba(0, 0, 0, 0.4),
+      inset 0 -1px 4px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    border-color: rgba(245, 217, 96, 0.55);
+    box-shadow:
+      0 0 20px rgba(245, 217, 96, 0.16),
+      inset 0 2px 8px rgba(0, 0, 0, 0.4),
+      inset 0 -1px 4px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.live-card-pulse {
+  border: 1.5px solid rgba(245, 217, 96, 0.3);
+  animation: live-border-pulse 2.5s ease-in-out infinite;
 }
 
 /* ─── Section header ─── */
@@ -383,7 +406,7 @@ body {
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -392,12 +415,24 @@ body {
 }
 
 .fade-up {
-  animation: fade-up 0.4s ease-out forwards;
+  animation: fade-up 0.45s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
-.fade-up-delay-1 { animation-delay: 0.05s; opacity: 0; }
-.fade-up-delay-2 { animation-delay: 0.1s; opacity: 0; }
-.fade-up-delay-3 { animation-delay: 0.15s; opacity: 0; }
+.fade-up-delay-1 { animation-delay: 0.06s; opacity: 0; }
+.fade-up-delay-2 { animation-delay: 0.12s; opacity: 0; }
+.fade-up-delay-3 { animation-delay: 0.18s; opacity: 0; }
+.fade-up-delay-4 { animation-delay: 0.26s; opacity: 0; }
+.fade-up-delay-5 { animation-delay: 0.35s; opacity: 0; }
+.fade-up-delay-6 { animation-delay: 0.45s; opacity: 0; }
+
+/* ─── Slide-in panel ─── */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out forwards;
+}
 
 /* ─── Form inputs ─── */
 .input-field {
@@ -488,6 +523,31 @@ html:has(.pinned-header-layout) main {
   pointer-events: none;
 }
 
+/* Premium ticker — taller, glassmorphic, with inner glow */
+.chalk-ticker-premium {
+  background: rgba(45, 66, 48, 0.5);
+  border: 1.5px dashed rgba(232, 228, 217, 0.12);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+  box-shadow:
+    inset 0 1px 0 rgba(232, 228, 217, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.chalk-ticker-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, transparent 0%, rgba(245, 217, 96, 0.025) 40%, transparent 70%),
+    linear-gradient(to bottom, rgba(232, 228, 217, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+}
+
 .chalk-ticker-divider {
   background: repeating-linear-gradient(
     180deg,
@@ -551,6 +611,28 @@ html:has(.pinned-header-layout) main {
   z-index: 1;
 }
 
+/* Animated hero glow — slow color shift */
+@keyframes hero-glow-shift {
+  0%, 100% {
+    background:
+      radial-gradient(ellipse at 25% 30%, rgba(245, 217, 96, 0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 75% 70%, rgba(93, 232, 138, 0.05) 0%, transparent 50%);
+  }
+  50% {
+    background:
+      radial-gradient(ellipse at 35% 60%, rgba(245, 217, 96, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 65% 25%, rgba(93, 232, 138, 0.08) 0%, transparent 50%);
+  }
+}
+
+.hero-glow-animated {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  animation: hero-glow-shift 8s ease-in-out infinite;
+}
+
 .hero-score {
   font-size: 2.75rem;
   line-height: 1;
@@ -573,6 +655,23 @@ html:has(.pinned-header-layout) main {
   background: rgba(245, 217, 96, 0.15);
   border-color: rgba(245, 217, 96, 0.5);
   text-shadow: 0 0 12px rgba(245, 217, 96, 0.3);
+}
+
+.hero-watch-btn-primary {
+  background: rgba(245, 217, 96, 0.14);
+  border: 1.5px dashed rgba(245, 217, 96, 0.4);
+  color: var(--color-yellow);
+  font-size: 1rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  text-shadow: 0 0 8px rgba(245, 217, 96, 0.2);
+}
+
+.hero-watch-btn-primary:hover {
+  background: rgba(245, 217, 96, 0.22);
+  border-color: rgba(245, 217, 96, 0.6);
+  text-shadow: 0 0 16px rgba(245, 217, 96, 0.4);
+  transform: scale(1.03);
 }
 
 .hero-dust-edge {
@@ -648,4 +747,71 @@ html:has(.pinned-header-layout) main {
 .chalk-empty-icon {
   position: relative;
   z-index: 1;
+}
+
+/* ─── Styled section labels with chalk underline ─── */
+.section-label-styled {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  font-family: var(--font-chalk-header);
+  text-shadow: 0 0 8px rgba(232, 228, 217, 0.15);
+  padding-bottom: 2px;
+  border-bottom: 1.5px dashed rgba(168, 164, 148, 0.2);
+}
+
+/* ─── Enhanced empty board with dust particles ─── */
+.chalk-empty-board-enhanced {
+  width: 140px;
+  height: 120px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(45, 66, 48, 0.2);
+  border: 1.5px dashed rgba(232, 228, 217, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+@keyframes dust-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.5);
+  }
+  30% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(40px) scale(1);
+  }
+}
+
+.chalk-dust-settle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.chalk-dust-particle {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(232, 228, 217, 0.3);
+  animation: dust-settle 3s ease-in infinite;
+}
+
+/* ─── Hero score large variant ─── */
+.hero-score-lg {
+  font-size: 3.25rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
 }

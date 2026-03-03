@@ -10,7 +10,7 @@ interface ScoreDisplayProps {
 }
 
 export function ScoreDisplay({ game, large = false }: ScoreDisplayProps) {
-  const logoSize = large ? 56 : 36;
+  const logoSize = large ? 56 : 40;
 
   return (
     <div className="flex items-center gap-3">
@@ -57,7 +57,7 @@ export function ScoreDisplay({ game, large = false }: ScoreDisplayProps) {
             )}
             <div
               className={`chalk-score tabular-nums tracking-tight ${
-                large ? 'text-4xl' : 'text-2xl'
+                large ? 'text-4xl' : 'text-[1.75rem]'
               } ${game.state === 'in' ? 'chalk-text-glow' : ''}`}
               style={{
                 color: game.state === 'post' ? 'var(--chalk-dim)' : 'var(--chalk-white)',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Game } from '@/lib/types';
 import { GameOdds, KalshiMarket, buildKalshiTicker, buildSpreadEventTicker, matchOdds } from '@/lib/kalshi';
 import { GameCard, GameVolume } from '@/components/GameCard';
@@ -137,8 +137,8 @@ export default function HomePage() {
         </div>
 
         {/* Stats Ticker */}
-        {!loading && games.length > 0 && (
-          <div className="chalk-ticker fade-up fade-up-delay-1">
+        {!loading && (
+          <div className="chalk-ticker-premium fade-up fade-up-delay-1">
             <div className="flex items-center justify-between">
               <TickerStat label="Games" value={games.length} />
               <TickerDivider />
@@ -167,23 +167,27 @@ export default function HomePage() {
         {/* No games */}
         {!loading && filteredGames.length === 0 && (
           <div className="text-center py-24 fade-up">
-            <div className="chalk-empty-board mx-auto mb-6">
-              <div className="chalk-empty-lines">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="chalk-ruled-line" style={{ opacity: 0.3 - i * 0.04 }} />
+            <div className="chalk-empty-board-enhanced mx-auto mb-6">
+              <div className="chalk-dust-settle">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="chalk-dust-particle" style={{
+                    left: `${10 + (i * 7) % 80}%`,
+                    animationDelay: `${i * 0.3}s`,
+                    animationDuration: `${2 + (i % 3)}s`,
+                  }} />
                 ))}
               </div>
               <div className="chalk-empty-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ color: 'var(--chalk-ghost)' }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ color: 'var(--chalk-ghost)' }}>
                   <circle cx="12" cy="12" r="9" strokeDasharray="4 3" />
                   <path d="M12 8v4M12 16h.01" />
                 </svg>
               </div>
             </div>
-            <p className="text-sm chalk-header" style={{ color: 'var(--chalk-dim)' }}>
+            <p className="text-base chalk-header" style={{ color: 'var(--chalk-dim)' }}>
               {showFavoritesOnly ? 'No favorite teams playing' : 'Board is clean'}
             </p>
-            <p className="text-xs mt-1.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+            <p className="text-sm mt-2" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
               {showFavoritesOnly
                 ? 'None of your favorites have games today'
                 : 'Check back later for today\'s slate'}
@@ -191,16 +195,25 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Board heading */}
+        {!loading && filteredGames.length > 0 && (
+          <div className="mb-4 fade-up fade-up-delay-2">
+            <span className="text-lg chalk-header chalk-text" style={{ color: 'var(--chalk-dim)' }}>
+              {"Tonight's Board"}
+            </span>
+          </div>
+        )}
+
         {/* Featured Hero Game */}
         {!loading && featuredGame && (
-          <div className="mb-6 fade-up fade-up-delay-1">
+          <div className="mb-6 fade-up fade-up-delay-3">
             <FeaturedHero game={featuredGame} odds={oddsMap[featuredGame.id]} volume={volumeMap[featuredGame.id]} />
           </div>
         )}
 
         {/* Game Sections */}
         {!loading && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {remainingLive.length > 0 && (
               <GameSection
                 title="Live"
@@ -270,8 +283,8 @@ function FeaturedHero({ game, odds, volume }: { game: Game; odds?: GameOdds; vol
   return (
     <Link href={`/game/${game.id}`} className="block group">
       <div className="hero-card rounded-[4px] overflow-hidden relative">
-        {/* Glow accent */}
-        <div className="hero-glow" />
+        {/* Glow accent — animated */}
+        <div className="hero-glow-animated" />
 
         {/* Top bar */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2 relative z-10">
@@ -304,13 +317,16 @@ function FeaturedHero({ game, odds, volume }: { game: Game; odds?: GameOdds; vol
         </div>
 
         {/* Matchup */}
-        <div className="flex items-center justify-center gap-4 px-5 py-5 relative z-10">
+        <div className="flex items-center justify-center gap-4 px-5 py-7 relative z-10">
           {/* Away */}
-          <div className="flex-1 flex flex-col items-center gap-2.5">
-            <TeamLogo logo={game.awayTeam.logo} name={game.awayTeam.displayName} size={52} glow={isLive} />
+          <div className="flex-1 flex flex-col items-center gap-3">
+            <TeamLogo logo={game.awayTeam.logo} name={game.awayTeam.displayName} size={72} glow={isLive} />
             <div className="text-center">
-              <div className="text-sm chalk-header" style={{ color: isLive && awayLeading ? 'var(--chalk-white)' : 'var(--chalk-dim)' }}>
+              <div className="text-base chalk-header" style={{ color: isLive && awayLeading ? 'var(--chalk-white)' : 'var(--chalk-dim)' }}>
                 {game.awayTeam.abbreviation}
+              </div>
+              <div className="text-[10px] mt-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                {game.awayTeam.displayName}
               </div>
             </div>
           </div>
@@ -318,24 +334,27 @@ function FeaturedHero({ game, odds, volume }: { game: Game; odds?: GameOdds; vol
           {/* Score or VS */}
           <div className="flex-shrink-0 text-center">
             {isLive ? (
-              <div className="hero-score chalk-score tabular-nums chalk-text-glow" style={{ color: 'var(--chalk-white)' }}>
+              <div className="hero-score-lg chalk-score tabular-nums chalk-text-glow" style={{ color: 'var(--chalk-white)' }}>
                 {game.awayTeam.score}
                 <span className="hero-score-divider mx-3">-</span>
                 {game.homeTeam.score}
               </div>
             ) : (
-              <div className="hero-score chalk-score" style={{ color: 'var(--chalk-ghost)', opacity: 0.5 }}>
+              <div className="hero-score-lg chalk-score" style={{ color: 'var(--chalk-ghost)', opacity: 0.5 }}>
                 vs
               </div>
             )}
           </div>
 
           {/* Home */}
-          <div className="flex-1 flex flex-col items-center gap-2.5">
-            <TeamLogo logo={game.homeTeam.logo} name={game.homeTeam.displayName} size={52} glow={isLive} />
+          <div className="flex-1 flex flex-col items-center gap-3">
+            <TeamLogo logo={game.homeTeam.logo} name={game.homeTeam.displayName} size={72} glow={isLive} />
             <div className="text-center">
-              <div className="text-sm chalk-header" style={{ color: isLive && homeLeading ? 'var(--chalk-white)' : 'var(--chalk-dim)' }}>
+              <div className="text-base chalk-header" style={{ color: isLive && homeLeading ? 'var(--chalk-white)' : 'var(--chalk-dim)' }}>
                 {game.homeTeam.abbreviation}
+              </div>
+              <div className="text-[10px] mt-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                {game.homeTeam.displayName}
               </div>
             </div>
           </div>
@@ -371,7 +390,7 @@ function FeaturedHero({ game, odds, volume }: { game: Game; odds?: GameOdds; vol
             )}
           </div>
           <span
-            className="hero-watch-btn flex items-center gap-1.5 px-4 py-2 rounded-[4px] text-sm cursor-pointer"
+            className="hero-watch-btn-primary flex items-center gap-1.5 rounded-[4px] cursor-pointer"
             style={{ fontFamily: 'var(--font-chalk-header)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -402,7 +421,7 @@ function GameSection({ title, games, oddsMap, volumeMap, accent, icon }: {
       <div className="flex items-center gap-3 mb-3">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="section-label">{title}</span>
+          <span className="section-label-styled">{title}</span>
           <span className="text-[10px] tabular-nums chalk-header" style={{ color: accent, opacity: 0.6 }}>
             {games.length}
           </span>
@@ -420,18 +439,52 @@ function GameSection({ title, games, oddsMap, volumeMap, accent, icon }: {
   );
 }
 
-/* ─── Ticker Stat ─── */
+/* ─── Ticker Stat with count-up animation ─── */
 function TickerStat({ label, value, highlight, format }: { label: string; value: number; highlight?: boolean; format?: boolean }) {
-  const display = format ? formatChalk(value) : value.toString();
+  const [displayed, setDisplayed] = useState(value);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    if (value === prevValue.current) return;
+    const start = prevValue.current;
+    prevValue.current = value;
+    if (value === 0) { setDisplayed(0); return; }
+    const duration = 600;
+    const steps = 20;
+    const increment = (value - start) / steps;
+    let current = start;
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      current += increment;
+      if (step >= steps) {
+        setDisplayed(value);
+        clearInterval(timer);
+      } else {
+        setDisplayed(Math.round(current));
+      }
+    }, duration / steps);
+    return () => clearInterval(timer);
+  }, [value]);
+
+  const isEmpty = value === 0;
+  const display = isEmpty ? '--' : (format ? formatChalk(displayed) : displayed.toString());
+
   return (
-    <div className="flex flex-col items-center gap-0.5 flex-1">
+    <div className="flex flex-col items-center gap-1 flex-1">
       <span
-        className="text-lg tabular-nums chalk-score"
-        style={{ color: highlight ? 'var(--color-yellow)' : 'var(--chalk-white)' }}
+        className="text-2xl tabular-nums chalk-score"
+        style={{
+          color: isEmpty ? 'var(--chalk-ghost)' : highlight ? 'var(--color-yellow)' : 'var(--chalk-white)',
+          opacity: isEmpty ? 0.5 : 1,
+        }}
       >
         {display}
       </span>
-      <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-header)' }}>
+      <span
+        className="text-[8px] uppercase tracking-[0.2em]"
+        style={{ color: highlight && !isEmpty ? 'rgba(245,217,96,0.5)' : 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-header)' }}
+      >
         {label}
       </span>
     </div>
@@ -440,7 +493,7 @@ function TickerStat({ label, value, highlight, format }: { label: string; value:
 
 function TickerDivider() {
   return (
-    <div className="w-px h-7 chalk-ticker-divider" />
+    <div className="w-px h-9 chalk-ticker-divider" />
   );
 }
 

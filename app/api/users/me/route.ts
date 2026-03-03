@@ -8,7 +8,9 @@ export async function GET(req: Request) {
   try {
     const userId = await verifyAuth(req);
     const data = await ensureUserDoc(userId);
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unauthorized';
     return NextResponse.json({ error: message }, { status: 401 });

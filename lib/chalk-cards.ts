@@ -22,7 +22,7 @@ export interface ChalkCardMetadata {
 export async function uploadChalkCard(blob: Blob, cardId: string): Promise<string> {
   await ensureAuth();
 
-  const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+  const ext = blob.type.includes('png') ? 'png' : blob.type.includes('mp4') ? 'mp4' : 'webm';
   const storageRef = ref(storage, `chalk-cards/${cardId}.${ext}`);
   await uploadBytes(storageRef, blob, { contentType: blob.type });
   return getDownloadURL(storageRef);

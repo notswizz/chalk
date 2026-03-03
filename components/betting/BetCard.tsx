@@ -253,6 +253,7 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   isCreator: boolean; isOpen: boolean; loading: boolean;
   onCancel: () => void; onClose: () => void; price: number | null;
 }) {
+  const [showShareCard, setShowShareCard] = useState(false);
   const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
 
   return (
@@ -281,10 +282,17 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
             <div className="text-lg chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
             <div className="flex items-center gap-2 mt-1">
               <span
-                className="px-2 py-0.5 rounded-[3px] text-xs chalk-header tracking-wide"
-                style={{ background: `${dirColor}15`, color: dirColor, border: `1px dashed ${dirColor}30` }}
+                className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
+                style={{ background: 'rgba(93,232,138,0.15)', color: 'var(--color-green)', border: '1px dashed rgba(93,232,138,0.3)' }}
               >
-                {bet.direction.toUpperCase()}
+                O
+              </span>
+              <span style={{ color: 'var(--chalk-ghost)', fontSize: '8px' }}>/</span>
+              <span
+                className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
+                style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)', border: '1px dashed rgba(232,93,93,0.3)' }}
+              >
+                U
               </span>
               <span className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
               <span className="text-sm" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
@@ -310,18 +318,34 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
           </div>
 
           {/* Actions */}
-          {isOpen && isCreator && (
+          <div className="flex gap-2">
             <button
-              onClick={onCancel}
-              disabled={loading}
-              className="w-full py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50 transition-all"
-              style={{ background: 'rgba(232,93,93,0.1)', border: '1.5px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}
+              onClick={() => setShowShareCard(true)}
+              className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer transition-all flex items-center justify-center gap-2"
+              style={{ background: 'rgba(245,217,96,0.1)', border: '1.5px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
             >
-              {loading ? '...' : 'Erase this prop'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+              Share
             </button>
-          )}
+            {isOpen && isCreator && (
+              <button
+                onClick={onCancel}
+                disabled={loading}
+                className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50 transition-all"
+                style={{ background: 'rgba(232,93,93,0.1)', border: '1.5px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}
+              >
+                {loading ? '...' : 'Erase this prop'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {showShareCard && <ChalkCardModal bet={bet} onClose={() => setShowShareCard(false)} />}
     </div>
   );
 }

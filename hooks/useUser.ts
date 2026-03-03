@@ -57,6 +57,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const token = await getAccessToken();
       const res = await fetch('/api/users/me', {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
       });
       if (res.ok) {
         const data = await res.json();

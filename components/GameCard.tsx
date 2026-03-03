@@ -31,7 +31,7 @@ export function GameCard({ game, odds, volume }: GameCardProps) {
     <Link href={`/game/${game.id}`} className="block">
       <div
         className={`chalk-card card-glow rounded-[4px] p-4 cursor-pointer ${
-          isLive ? 'live-card' : ''
+          isLive ? 'live-card-pulse' : ''
         } ${isFinal ? 'opacity-60 hover:opacity-100' : ''}`}
       >
         <ScoreDisplay game={game} />

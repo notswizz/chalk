@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface ChalkCard {
@@ -26,8 +26,6 @@ export default function CardClient({ id }: { id: string }) {
   const [card, setCard] = useState<ChalkCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -49,13 +47,6 @@ export default function CardClient({ id }: { id: string }) {
     }
     load();
   }, [id]);
-
-  function togglePlay() {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) { video.play().catch(() => {}); setPlaying(true); }
-    else { video.pause(); setPlaying(false); }
-  }
 
   if (loading) {
     return (
@@ -88,29 +79,16 @@ export default function CardClient({ id }: { id: string }) {
   const statLabel = STAT_LABELS[card.stat] || card.stat;
   const dirColor = card.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
   const aspectClass = card.format === 'story' ? 'aspect-[9/16]' : card.format === 'square' ? 'aspect-square' : 'aspect-video';
+  const isImage = card.url.includes('.png');
 
   return (
     <div className="max-w-3xl mx-auto px-4 pt-6 pb-20 fade-up">
-      {/* Video player */}
-      <div className={`${aspectClass} max-h-[70vh] mx-auto bg-black rounded-[4px] overflow-hidden relative cursor-pointer mb-4`} onClick={togglePlay}>
-        <video
-          ref={videoRef}
-          src={card.url}
-          playsInline
-          preload="auto"
-          className="w-full h-full object-contain"
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onEnded={() => setPlaying(false)}
-        />
-        {!playing && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: '1px dashed var(--dust-medium)' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--chalk-white)" className="ml-1">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-          </div>
+      {/* Card image/video */}
+      <div className={`${aspectClass} max-h-[70vh] mx-auto bg-black rounded-[4px] overflow-hidden mb-4`}>
+        {isImage ? (
+          <img src={card.url} alt={`${card.player} chalk card`} className="w-full h-full object-contain" />
+        ) : (
+          <video src={card.url} playsInline autoPlay loop muted className="w-full h-full object-contain" />
         )}
       </div>
 
