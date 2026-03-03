@@ -1,8 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
+
+interface PlayerInfo {
+  name: string;
+  position: string;
+  jersey: string;
+}
 
 const STATS = [
   { value: 'points', label: 'Points' },
@@ -14,6 +20,7 @@ const STATS = [
 interface Props {
   gameId: string;
   gameTitle: string;
+  teams?: string[];
   onClose: () => void;
   onCreated: () => void;
 }
@@ -32,10 +39,14 @@ function formatAmerican(val: number): string {
   return val > 0 ? `+${val}` : `${val}`;
 }
 
-export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props) {
+export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }: Props) {
   const { getAccessToken, profile } = useUser();
   const { price } = useChalkPrice();
   const [player, setPlayer] = useState('');
+  const [playersByTeam, setPlayersByTeam] = useState<Record<string, PlayerInfo[]>>({});
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const playerInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const [stat, setStat] = useState('points');
   const [target, setTarget] = useState('');
   const [direction, setDirection] = useState<'over' | 'under'>('over');
@@ -43,6 +54,39 @@ export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props)
   const [oddsInput, setOddsInput] = useState('-110');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch rosters for both teams
+  useEffect(() => {
+    if (!teams || teams.length === 0) return;
+    fetch(`/api/players?teams=${teams.join(',')}`)
+      .then((r) => r.json())
+      .then((d) => setPlayersByTeam(d.byTeam ?? {}))
+      .catch(() => {});
+  }, [teams]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node) &&
+        playerInputRef.current && !playerInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const teamEntries = Object.entries(playersByTeam);
+  const hasPlayers = teamEntries.some(([, players]) => players.length > 0);
+  const query = player.trim().toLowerCase();
+  const filteredByTeam = teamEntries
+    .map(([team, players]) => ({
+      team,
+      players: query ? players.filter((p) => p.name.toLowerCase().includes(query)) : players,
+    }))
+    .filter((g) => g.players.length > 0);
 
   const stakeNum = Number(stake) || 0;
   const oddsNum = Number(oddsInput) || 0;
@@ -124,13 +168,66 @@ export function CreateBetModal({ gameId, gameTitle, onClose, onCreated }: Props)
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Player */}
             <Field label="Player">
-              <input
-                type="text"
-                value={player}
-                onChange={(e) => setPlayer(e.target.value)}
-                placeholder="e.g. LeBron James"
-                className="input-field"
-              />
+              <div className="relative">
+                <input
+                  ref={playerInputRef}
+                  type="text"
+                  value={player}
+                  onChange={(e) => { setPlayer(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder={hasPlayers ? 'Search player...' : 'e.g. LeBron James'}
+                  className="input-field w-full"
+                  autoComplete="off"
+                />
+                {showSuggestions && filteredByTeam.length > 0 && (
+                  <div
+                    ref={suggestionsRef}
+                    className="absolute z-50 left-0 right-0 top-full mt-1 rounded-[4px] max-h-56 overflow-y-auto scrollbar-hide"
+                    style={{ background: 'var(--board-dark)', border: '1px dashed var(--dust-medium)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                  >
+                    {filteredByTeam.map(({ team, players }, gi) => (
+                      <div key={team}>
+                        {gi > 0 && <div style={{ borderTop: '1px dashed var(--dust-light)' }} />}
+                        <div
+                          className="px-3 py-1.5 sticky top-0"
+                          style={{ background: 'var(--board-dark)', borderBottom: '1px dashed rgba(232,228,217,0.06)' }}
+                        >
+                          <span className="text-[9px] font-bold uppercase tracking-[0.15em]" style={{ color: 'var(--chalk-ghost)' }}>
+                            {team}
+                          </span>
+                        </div>
+                        {players.map((p) => (
+                          <button
+                            key={`${team}-${p.name}`}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 cursor-pointer"
+                            style={{ color: 'var(--chalk-white)' }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setPlayer(p.name);
+                              setShowSuggestions(false);
+                            }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--dust-light)'; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                          >
+                            {p.jersey && (
+                              <span className="text-[10px] tabular-nums w-5 text-center flex-shrink-0" style={{ color: 'var(--chalk-ghost)' }}>
+                                #{p.jersey}
+                              </span>
+                            )}
+                            <span className="truncate">{p.name}</span>
+                            {p.position && (
+                              <span className="text-[10px] flex-shrink-0 ml-auto" style={{ color: 'var(--chalk-ghost)' }}>
+                                {p.position}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </Field>
 
             {/* Stat + Target */}

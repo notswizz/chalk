@@ -86,7 +86,7 @@ export default function BetsPage() {
   const activeTab = TABS.find((t) => t.key === tab)!;
 
   return (
-    <div className="pinned-header-layout max-w-2xl mx-auto px-4">
+    <div className="pinned-header-layout max-w-3xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="pinned-header pt-8 pb-4">
         <div className="flex items-center justify-between">

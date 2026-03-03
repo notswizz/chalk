@@ -60,7 +60,7 @@ export default function ChalkCardPage({ params }: { params: Promise<{ id: string
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-10">
+      <div className="max-w-3xl mx-auto px-4 pt-10">
         <div className="aspect-[9/16] max-h-[70vh] mx-auto rounded-[4px] shimmer mb-4" />
         <div className="h-8 w-48 rounded-[4px] shimmer" />
       </div>
@@ -69,7 +69,7 @@ export default function ChalkCardPage({ params }: { params: Promise<{ id: string
 
   if (error || !card) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-20 text-center fade-up">
+      <div className="max-w-3xl mx-auto px-4 pt-20 text-center fade-up">
         <div className="w-16 h-16 mx-auto mb-4 rounded-[4px] flex items-center justify-center" style={{ background: 'var(--dust-light)' }}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--chalk-ghost)" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -91,7 +91,7 @@ export default function ChalkCardPage({ params }: { params: Promise<{ id: string
   const aspectClass = card.format === 'story' ? 'aspect-[9/16]' : card.format === 'square' ? 'aspect-square' : 'aspect-video';
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pt-6 pb-20 fade-up">
+    <div className="max-w-3xl mx-auto px-4 pt-6 pb-20 fade-up">
       {/* Video player */}
       <div className={`${aspectClass} max-h-[70vh] mx-auto bg-black rounded-[4px] overflow-hidden relative cursor-pointer mb-4`} onClick={togglePlay}>
         <video

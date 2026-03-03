@@ -5,7 +5,7 @@ import { useUser } from '@/hooks/useUser';
 import { BetCard, Bet } from './BetCard';
 import { CreateBetModal } from './CreateBetModal';
 
-export function BetFeed({ gameId, gameTitle, gameOver }: { gameId: string; gameTitle: string; gameOver?: boolean }) {
+export function BetFeed({ gameId, gameTitle, gameOver, teams }: { gameId: string; gameTitle: string; gameOver?: boolean; teams?: string[] }) {
   const { authenticated, login, getAccessToken, refreshProfile } = useUser();
   const [tab, setTab] = useState<'open' | 'mine'>('open');
   const [bets, setBets] = useState<Bet[]>([]);
@@ -143,6 +143,7 @@ export function BetFeed({ gameId, gameTitle, gameOver }: { gameId: string; gameT
         <CreateBetModal
           gameId={gameId}
           gameTitle={gameTitle}
+          teams={teams}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);

@@ -34,7 +34,7 @@ export default function SportPage({ params }: { params: Promise<{ sport: string 
   const finalGames = games.filter((g) => g.state === 'post');
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>
         {sportInfo ? `${sportInfo.emoji} ${sportInfo.label}` : (sport as Sport).toUpperCase()}
       </h1>

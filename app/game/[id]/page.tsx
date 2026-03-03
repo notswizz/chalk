@@ -28,25 +28,24 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const [votes, setVotes] = useState<Record<string, { upvotes: number; downvotes: number; score: number }>>({});
   const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
 
-  // Fetch game, streams, volume, and odds in parallel on mount
+  // Fetch game data, volume, and odds in parallel (fast) — streams load separately
   useEffect(() => {
     async function load() {
       try {
-        const [streamsRes, volumeRes, oddsRes] = await Promise.all([
-          fetch(`/api/streams/${id}`),
+        const [gamesRes, volumeRes, oddsRes] = await Promise.all([
+          fetch(`/api/scores?ids=${id}`),
           fetch(`/api/bets/volume?gameIds=${id}`),
           fetch('/api/odds'),
         ]);
 
-        const streamsData = await streamsRes.json();
-        setGame(streamsData.game ?? null);
-        setStreams(streamsData.streams ?? []);
+        const gamesData = await gamesRes.json();
+        const gameData = gamesData.games?.[0] ?? null;
+        setGame(gameData);
 
         const volumeData = await volumeRes.json();
         setVolume(volumeData.volumes?.[id] ?? null);
 
         const oddsData = await oddsRes.json();
-        const gameData = streamsData.game;
         if (gameData) {
           const markets: KalshiMarket[] = oddsData.markets ?? [];
           const spreads: KalshiMarket[] = oddsData.spreads ?? [];
@@ -65,6 +64,14 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       }
     }
     load();
+  }, [id]);
+
+  // Fetch streams separately (slow — scrapes external sites)
+  useEffect(() => {
+    fetch(`/api/streams/${id}`)
+      .then((r) => r.json())
+      .then((d) => setStreams(d.streams ?? []))
+      .catch(() => {});
   }, [id]);
 
   // Polling: volume + odds refresh every 30s
@@ -369,6 +376,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
             gameId={id}
             gameTitle={`${game.awayTeam.displayName} vs ${game.homeTeam.displayName}`}
             gameOver={game.state === 'post'}
+            teams={[game.awayTeam.abbreviation, game.homeTeam.abbreviation]}
           />
         </div>
       </div>

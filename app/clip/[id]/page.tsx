@@ -64,7 +64,7 @@ export default function ClipPage({ params }: { params: Promise<{ id: string }> }
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-10">
+      <div className="max-w-3xl mx-auto px-4 pt-10">
         <div className="aspect-video rounded-[4px] shimmer mb-4" />
         <div className="h-8 w-48 rounded-[4px] shimmer" />
       </div>
@@ -73,7 +73,7 @@ export default function ClipPage({ params }: { params: Promise<{ id: string }> }
 
   if (error || !clip) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-20 text-center fade-up">
+      <div className="max-w-3xl mx-auto px-4 pt-20 text-center fade-up">
         <div
           className="w-16 h-16 mx-auto mb-4 rounded-[4px] flex items-center justify-center"
           style={{ background: 'var(--dust-light)' }}
@@ -97,7 +97,7 @@ export default function ClipPage({ params }: { params: Promise<{ id: string }> }
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pt-6 pb-20 fade-up">
+    <div className="max-w-3xl mx-auto px-4 pt-6 pb-20 fade-up">
       {/* Video player */}
       <div
         className="aspect-video bg-black rounded-[4px] overflow-hidden relative cursor-pointer mb-4"

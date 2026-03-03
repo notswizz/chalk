@@ -77,7 +77,7 @@ export default function ActivityPage() {
 
   if (!authenticated) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-20 text-center">
+      <div className="max-w-3xl mx-auto px-4 pt-20 text-center">
         <h1 className="text-2xl chalk-header mb-4" style={{ color: 'var(--chalk-white)' }}>Activity</h1>
         <p className="text-sm mb-6" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
           Sign in to see your betting history.
@@ -94,7 +94,7 @@ export default function ActivityPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-10">
+      <div className="max-w-3xl mx-auto px-4 pt-10">
         <h1 className="text-xl chalk-header mb-6" style={{ color: 'var(--chalk-white)' }}>Activity</h1>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -114,7 +114,7 @@ export default function ActivityPage() {
   const winRate = settled > 0 ? Math.round((wins / settled) * 100) : 0;
 
   return (
-    <div className="pinned-header-layout max-w-2xl mx-auto px-4">
+    <div className="pinned-header-layout max-w-3xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="pinned-header pt-6 pb-4">
         <h1 className="text-xl chalk-header mb-5" style={{ color: 'var(--chalk-white)' }}>Activity</h1>

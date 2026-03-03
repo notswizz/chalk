@@ -98,7 +98,7 @@ export default function HomePage() {
     : upcomingGames;
 
   return (
-    <div className="home-layout max-w-2xl mx-auto px-4">
+    <div className="home-layout max-w-3xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="home-header pt-6 pb-4">
         {/* Date + Controls */}
