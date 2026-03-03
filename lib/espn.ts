@@ -99,7 +99,7 @@ export async function fetchGameById(gameId: string): Promise<Game | null> {
     const toTeam = (c: any, side: 'home' | 'away'): Team => ({
       abbreviation: c?.team?.abbreviation ?? '???',
       displayName: c?.team?.displayName ?? 'Unknown',
-      logo: c?.team?.logo ?? '',
+      logo: c?.team?.logo ?? c?.team?.logos?.[0]?.href ?? '',
       score: c?.score ?? '0',
       homeAway: side,
     });
