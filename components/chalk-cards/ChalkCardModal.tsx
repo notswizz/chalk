@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Bet } from '@/components/betting/BetCard';
 import { useChalkCardGenerator } from '@/hooks/useChalkCardGenerator';
-import { ChalkCardFormat } from '@/lib/chalk-card-renderer';
+import { ChalkCardFormat, ChalkCardPerspective } from '@/lib/chalk-card-renderer';
 import { uploadChalkCard } from '@/lib/chalk-cards';
 import { useUser } from '@/hooks/useUser';
+import { toAmericanOdds } from '@/components/betting/BetCard';
 
 const VOICES = [
   { id: 'en-US-GuyNeural', label: 'Guy (US)' },
@@ -23,13 +24,13 @@ const FORMATS: { id: ChalkCardFormat; label: string; icon: string }[] = [
 
 const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', assists: 'AST', threes: '3PM' };
 
-function generateScript(bet: Bet): string {
+function generateScript(bet: Bet, perspective: ChalkCardPerspective): string {
   const statLabel = STAT_LABELS[bet.stat] || bet.stat;
-  const dir = bet.direction.toLowerCase();
-  const name = bet.creatorName || 'Anonymous';
+  const dir = perspective.direction.toLowerCase();
+  const name = perspective.name;
 
-  if (bet.status === 'settled' && bet.result === 'creator_wins') {
-    return `${name} called ${bet.player} over ${bet.target} ${statLabel}. Cashed.`;
+  if (bet.status === 'settled' && perspective.isWinner) {
+    return `${name} called ${bet.player} ${dir} ${bet.target} ${statLabel}. Cashed.`;
   }
   if (bet.status === 'settled') {
     return `${name} had ${bet.player} ${dir} ${bet.target} ${statLabel}. Erased.`;
@@ -38,11 +39,28 @@ function generateScript(bet: Bet): string {
 }
 
 export function ChalkCardModal({ bet, onClose }: { bet: Bet; onClose: () => void }) {
-  const { profile, getAccessToken } = useUser();
+  const { profile, userId, getAccessToken } = useUser();
   const { generate, isGenerating, progress } = useChalkCardGenerator();
 
+  const isCreator = userId === bet.creatorId;
+  const counterDir = bet.direction === 'over' ? 'under' : 'over';
+  const userDir = isCreator ? bet.direction : counterDir;
+  const userStake = isCreator ? bet.creatorStake : bet.takerStake;
+  const userDecimal = isCreator ? (bet.takerStake / bet.creatorStake) : (bet.creatorStake / bet.takerStake);
+  const userOdds = toAmericanOdds(userDecimal);
+  const userName = isCreator ? (bet.creatorName || 'Anonymous') : (bet.takerName || 'Anonymous');
+  const userWon = bet.result === 'push' ? null : bet.result === 'creator_wins' ? isCreator : !isCreator;
+
+  const perspective: ChalkCardPerspective = {
+    direction: userDir,
+    stake: userStake,
+    odds: userOdds,
+    name: userName,
+    isWinner: userWon,
+  };
+
   const [format, setFormat] = useState<ChalkCardFormat>('story');
-  const [text, setText] = useState(() => generateScript(bet));
+  const [text, setText] = useState(() => generateScript(bet, perspective));
   const [voice, setVoice] = useState(VOICES[0].id);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
@@ -67,7 +85,7 @@ export function ChalkCardModal({ bet, onClose }: { bet: Bet; onClose: () => void
 
     try {
       const token = await getAccessToken();
-      const blob = await generate(bet, format, text, voice, token ?? undefined);
+      const blob = await generate(bet, format, text, voice, token ?? undefined, perspective);
       const url = URL.createObjectURL(blob);
       setVideoBlob(blob);
       setVideoUrl(url);
@@ -94,7 +112,7 @@ export function ChalkCardModal({ bet, onClose }: { bet: Bet; onClose: () => void
           player: bet.player,
           stat: bet.stat,
           target: bet.target,
-          direction: bet.direction,
+          direction: userDir,
           result: bet.result || null,
           gameTitle: bet.gameTitle || '',
           format,

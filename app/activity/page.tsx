@@ -3,7 +3,8 @@
 import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 import { useState, useEffect } from 'react';
-import type { Bet } from '@/components/betting/BetCard';
+import { createPortal } from 'react-dom';
+import { type Bet, BetDetailModal, toAmericanOdds } from '@/components/betting/BetCard';
 
 type Outcome = 'won' | 'lost' | 'push' | 'live' | 'open' | 'cancelled';
 
@@ -47,6 +48,7 @@ export default function ActivityPage() {
   const { price } = useChalkPrice();
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
 
   useEffect(() => {
     if (!authenticated) { setLoading(false); return; }
@@ -151,12 +153,13 @@ export default function ActivityPage() {
               return (
                 <div
                   key={bet.id}
-                  className="chalk-card rounded-[4px] overflow-hidden fade-up"
+                  className="chalk-card rounded-[4px] overflow-hidden fade-up cursor-pointer"
                   style={{
                     animationDelay: `${Math.min(i * 30, 300)}ms`,
                     opacity: 0,
                     borderLeft: `2px solid ${style.color}`,
                   }}
+                  onClick={() => setSelectedBet(bet)}
                 >
                   {/* Top section */}
                   <div className="px-3.5 pt-3 pb-2">
@@ -270,6 +273,24 @@ export default function ActivityPage() {
           </div>
         )}
       </div>
+
+      {/* Prop Detail Modal */}
+      {selectedBet && createPortal(
+        <BetDetailModal
+          bet={selectedBet}
+          statLabel={STAT_LABELS[selectedBet.stat] || selectedBet.stat}
+          takerOdds={toAmericanOdds(selectedBet.creatorStake / selectedBet.takerStake)}
+          creatorOdds={toAmericanOdds(selectedBet.takerStake / selectedBet.creatorStake)}
+          pool={selectedBet.creatorStake + selectedBet.takerStake}
+          isCreator={selectedBet.creatorId === userId}
+          isOpen={selectedBet.status === 'open'}
+          loading={false}
+          onCancel={() => {}}
+          onClose={() => setSelectedBet(null)}
+          price={price}
+        />,
+        document.body
+      )}
     </div>
   );
 }

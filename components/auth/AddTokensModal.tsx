@@ -30,7 +30,7 @@ import {
 } from '@/lib/solana';
 
 export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const { getAccessToken, wallet, walletMismatch, savedWalletAddress } = useUser();
+  const { getAccessToken, wallet, walletMismatch, savedWalletAddress, profile } = useUser();
   const { price } = useChalkPrice();
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const [amount, setAmount] = useState('500');
@@ -262,29 +262,53 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
           </div>
         )}
 
-        {/* Wallet balance card */}
-        {onChainBalance !== null && !walletMismatch && (
-          <div
-            className="mb-5 rounded-[4px] px-4 py-4"
-            style={{ background: 'rgba(245,217,96,0.04)', border: '1.5px dashed rgba(245,217,96,0.15)' }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase tracking-[0.15em] chalk-header" style={{ color: 'var(--chalk-ghost)' }}>
-                Wallet Balance
+        {/* Balance cards */}
+        {!walletMismatch && (
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
+            {/* In-game balance */}
+            <div
+              className="rounded-[4px] px-3 py-3"
+              style={{ background: 'rgba(232,228,217,0.04)', border: '1.5px dashed rgba(232,228,217,0.1)' }}
+            >
+              <span className="text-[9px] uppercase tracking-[0.15em] chalk-header block mb-1" style={{ color: 'var(--chalk-ghost)' }}>
+                In-Game
               </span>
-              <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
-              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>
+                  {(profile?.coins ?? 0).toLocaleString()}
+                </span>
+              </div>
+              {price !== null && (
+                <div className="text-[10px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
+                  {formatUsd(profile?.coins ?? 0, price)}
+                </div>
+              )}
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
-                {Math.floor(onChainBalance).toLocaleString()}
-              </span>
-              <span className="text-xs chalk-header" style={{ color: 'var(--chalk-dim)' }}>CHALK</span>
-            </div>
-            {price !== null && (
-              <div className="text-sm tabular-nums mt-1" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
-                {formatUsd(Math.floor(onChainBalance), price)} USD
+
+            {/* Wallet balance */}
+            {onChainBalance !== null && (
+              <div
+                className="rounded-[4px] px-3 py-3"
+                style={{ background: 'rgba(245,217,96,0.04)', border: '1.5px dashed rgba(245,217,96,0.15)' }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] uppercase tracking-[0.15em] chalk-header" style={{ color: 'var(--chalk-ghost)' }}>
+                    Wallet
+                  </span>
+                  <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                    {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
+                    {Math.floor(onChainBalance).toLocaleString()}
+                  </span>
+                </div>
+                {price !== null && (
+                  <div className="text-[10px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
+                    {formatUsd(Math.floor(onChainBalance), price)}
+                  </div>
+                )}
               </div>
             )}
           </div>

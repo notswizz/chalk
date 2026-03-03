@@ -210,13 +210,22 @@ function tickParticles(ctx: CanvasRenderingContext2D, dt: number) {
   }
 }
 
+export interface ChalkCardPerspective {
+  direction: string;
+  stake: number;
+  odds: string;
+  name: string;
+  isWinner: boolean | null; // null = not settled
+}
+
 // =========== MAIN DRAW ===========
 export async function drawChalkCardFrame(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   bet: Bet,
-  progress: number
+  progress: number,
+  perspective?: ChalkCardPerspective,
 ) {
   ensureFonts();
 
@@ -250,10 +259,12 @@ export async function drawChalkCardFrame(
 
   const statLabel = STAT_LABELS[bet.stat] || bet.stat;
   const statFull = STAT_FULL[bet.stat] || bet.stat.toUpperCase();
-  const dirColor = bet.direction === 'over' ? GREEN : RED;
+  const userDir = perspective?.direction ?? bet.direction;
+  const dirColor = userDir === 'over' ? GREEN : RED;
   const pool = bet.creatorStake + bet.takerStake;
+  const userStake = perspective?.stake ?? bet.takerStake;
   const takerDecimal = bet.creatorStake / bet.takerStake;
-  const odds = takerDecimal >= 1 ? `+${Math.round(takerDecimal * 100)}` : `${Math.round(-100 / takerDecimal)}`;
+  const odds = perspective?.odds ?? (takerDecimal >= 1 ? `+${Math.round(takerDecimal * 100)}` : `${Math.round(-100 / takerDecimal)}`);
 
   // Layout Y positions — fill the screen
   const topY = isPortrait ? h * 0.10 : h * 0.08;
@@ -296,7 +307,7 @@ export async function drawChalkCardFrame(
     const op = Math.min(1, propP * 3);
 
     // Direction badge — big, colored
-    const dirText = bet.direction.toUpperCase();
+    const dirText = userDir.toUpperCase();
     const badgeW = 140 * s;
     const badgeH = 52 * s;
     const badgeCx = cx;
@@ -340,7 +351,7 @@ export async function drawChalkCardFrame(
 
     const colW = (w - pad * 2) / 3;
     const items = [
-      { label: 'YOUR STAKE', sublabel: 'coins to risk', value: `${bet.takerStake}`, color: YELLOW, unit: '' },
+      { label: 'YOUR STAKE', sublabel: 'coins to risk', value: `${userStake}`, color: YELLOW, unit: '' },
       { label: 'TOTAL POT', sublabel: 'winner takes all', value: `${pool}`, color: WHITE, unit: '' },
       { label: 'YOUR ODDS', sublabel: 'payout multiplier', value: odds, color: GREEN, unit: '' },
     ];
@@ -384,9 +395,10 @@ export async function drawChalkCardFrame(
     let stampText: string;
     let stampColor: string;
     if (bet.status === 'settled') {
-      if (bet.result === 'creator_wins') { stampText = 'CASHED'; stampColor = GREEN; }
-      else if (bet.result === 'taker_wins') { stampText = 'ERASED'; stampColor = RED; }
-      else { stampText = 'PUSH'; stampColor = DIM; }
+      const userWon = perspective?.isWinner ?? (bet.result === 'creator_wins');
+      if (bet.result === 'push') { stampText = 'PUSH'; stampColor = DIM; }
+      else if (userWon) { stampText = 'CASHED'; stampColor = GREEN; }
+      else { stampText = 'ERASED'; stampColor = RED; }
     } else if (bet.status === 'matched') { stampText = 'LIVE'; stampColor = YELLOW; }
     else { stampText = 'ON THE BOARD'; stampColor = GREEN; }
 
@@ -462,7 +474,7 @@ export async function drawChalkCardFrame(
   // ========== 0.70–0.85: CREATOR ==========
   const creatorP = t(0.70, 0.85);
   if (creatorP > 0) {
-    const userName = bet.creatorName || 'Anonymous';
+    const userName = perspective?.name || bet.creatorName || 'Anonymous';
     chalk(ctx, `by ${userName}`, cx, footerY - 40 * s, {
       font: bodyFont, size: Math.round(28 * s), color: DIM,
       opacity: easeOut(creatorP), writeIn: easeOut(creatorP),

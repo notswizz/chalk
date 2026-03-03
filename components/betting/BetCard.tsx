@@ -36,6 +36,11 @@ export interface Bet {
 
 const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', assists: 'AST', threes: '3PM' };
 
+export function toAmericanOdds(decimal: number) {
+  if (decimal >= 1) return `+${Math.round(decimal * 100)}`;
+  return `${Math.round(-100 / decimal)}`;
+}
+
 export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpdate: () => void; showGame?: boolean; gameOver?: boolean }) {
   const { authenticated, userId, getAccessToken, login } = useUser();
   const { price } = useChalkPrice();
@@ -61,11 +66,6 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
 
   const statLabel = STAT_LABELS[bet.stat] || bet.stat;
 
-  // American odds from decimal
-  function toAmericanOdds(decimal: number) {
-    if (decimal >= 1) return `+${Math.round(decimal * 100)}`;
-    return `${Math.round(-100 / decimal)}`;
-  }
   const takerDecimal = bet.creatorStake / bet.takerStake;
   const creatorDecimal = bet.takerStake / bet.creatorStake;
   const takerOdds = toAmericanOdds(takerDecimal);
@@ -355,7 +355,7 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   );
 }
 
-function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price }: {
+export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price }: {
   bet: Bet; statLabel: string; takerOdds: string; creatorOdds: string; pool: number;
   isCreator: boolean; isOpen: boolean; loading: boolean;
   onCancel: () => void; onClose: () => void; price: number | null;
@@ -433,7 +433,7 @@ function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreato
   );
 }
 
-function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds }: { bet: Bet; pool: number; price: number | null; creatorOdds: string; takerOdds: string }) {
+export function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds }: { bet: Bet; pool: number; price: number | null; creatorOdds: string; takerOdds: string }) {
   const counterDir = bet.direction === 'over' ? 'under' : 'over';
   const creatorDirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
   const takerDirColor = counterDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';

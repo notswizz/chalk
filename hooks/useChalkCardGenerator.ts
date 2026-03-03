@@ -2,10 +2,10 @@
 
 import { useState, useCallback } from 'react';
 import { Bet } from '@/components/betting/BetCard';
-import { drawChalkCardFrame, ChalkCardFormat, FORMAT_SIZES } from '@/lib/chalk-card-renderer';
+import { drawChalkCardFrame, ChalkCardFormat, FORMAT_SIZES, ChalkCardPerspective } from '@/lib/chalk-card-renderer';
 
 interface UseChalkCardGeneratorReturn {
-  generate: (bet: Bet, format: ChalkCardFormat, text: string, voice?: string, token?: string) => Promise<Blob>;
+  generate: (bet: Bet, format: ChalkCardFormat, text: string, voice?: string, token?: string, perspective?: ChalkCardPerspective) => Promise<Blob>;
   isGenerating: boolean;
   progress: number;
 }
@@ -35,6 +35,7 @@ export function useChalkCardGenerator(): UseChalkCardGeneratorReturn {
     text: string,
     voice?: string,
     token?: string,
+    perspective?: ChalkCardPerspective,
   ): Promise<Blob> => {
     setIsGenerating(true);
     setProgress(0);
@@ -115,7 +116,7 @@ export function useChalkCardGenerator(): UseChalkCardGeneratorReturn {
           const p = Math.min(1, elapsed / totalDuration);
           setProgress(0.25 + p * 0.7);
 
-          drawChalkCardFrame(ctx, w, h, bet, p);
+          drawChalkCardFrame(ctx, w, h, bet, p, perspective);
 
           if (p < 1) {
             requestAnimationFrame(frame);
