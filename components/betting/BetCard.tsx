@@ -406,7 +406,7 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
           </div>
 
           {/* Both sides breakdown */}
-          <BetSidesBreakdown bet={bet} pool={pool} price={price} creatorOdds={creatorOdds} takerOdds={takerOdds} />
+          <BetSidesBreakdown bet={bet} pool={pool} price={price} creatorOdds={creatorOdds} takerOdds={takerOdds} isCreator={isCreator} />
 
           {/* Meta */}
           <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
@@ -433,23 +433,41 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   );
 }
 
-export function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds }: { bet: Bet; pool: number; price: number | null; creatorOdds: string; takerOdds: string }) {
+export function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds, isCreator }: { bet: Bet; pool: number; price: number | null; creatorOdds: string; takerOdds: string; isCreator?: boolean }) {
   const counterDir = bet.direction === 'over' ? 'under' : 'over';
   const creatorDirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
   const takerDirColor = counterDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';
 
-  // Win percentage = stake / pool (implied probability from the odds)
   const creatorWinPct = pool > 0 ? Math.round((bet.takerStake / pool) * 100) : 50;
   const takerWinPct = pool > 0 ? Math.round((bet.creatorStake / pool) * 100) : 50;
 
-  // Profit if win (spread) = pool - own stake
   const creatorProfit = pool - bet.creatorStake;
   const takerProfit = pool - bet.takerStake;
+
+  const rainbow = 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8, #e85d5d)';
+  const normalBorder = '1px solid rgba(232,228,217,0.08)';
+
+  function SideCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
+    if (highlighted) {
+      return (
+        <div className="rounded-[5px] p-[1.5px]" style={{ background: rainbow }}>
+          <div className="rounded-[4px] px-3 py-3" style={{ background: 'var(--board-dark)' }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-[4px] px-3 py-3" style={{ background: 'rgba(232,228,217,0.03)', border: normalBorder }}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-2.5">
       {/* Creator side */}
-      <div className="rounded-[4px] px-3 py-3" style={{ background: 'rgba(232,228,217,0.03)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+      <SideCard highlighted={isCreator === true}>
         <div className="flex items-center gap-1.5 mb-2.5">
           <span
             className="px-1.5 py-px rounded-[2px] text-[8px] chalk-header tracking-wide"
@@ -482,10 +500,10 @@ export function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds }: 
             <div className="text-sm tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{creatorWinPct}%</div>
           </div>
         </div>
-      </div>
+      </SideCard>
 
       {/* Taker side */}
-      <div className="rounded-[4px] px-3 py-3" style={{ background: 'rgba(232,228,217,0.03)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+      <SideCard highlighted={isCreator === false}>
         <div className="flex items-center gap-1.5 mb-2.5">
           <span
             className="px-1.5 py-px rounded-[2px] text-[8px] chalk-header tracking-wide"
@@ -518,7 +536,7 @@ export function BetSidesBreakdown({ bet, pool, price, creatorOdds, takerOdds }: 
             <div className="text-sm tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{takerWinPct}%</div>
           </div>
         </div>
-      </div>
+      </SideCard>
     </div>
   );
 }

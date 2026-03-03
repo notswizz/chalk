@@ -74,45 +74,48 @@ export function BetFeed({ gameId, gameTitle, gameOver, teams }: { gameId: string
             </div>
           )}
         </div>
-
-        <button
-          onClick={() => { if (!authenticated) { login(); return; } setShowCreate(true); }}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          style={{
-            background: 'rgba(245,217,96,0.12)',
-            border: '1px dashed rgba(245,217,96,0.2)',
-            color: 'var(--color-yellow)',
-          }}
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Draw up a prop
-        </button>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex items-center gap-0.5 mb-4 p-0.5 rounded-[4px] w-fit" style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-light)' }}>
-        <button
-          onClick={() => setTab('open')}
-          className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all cursor-pointer"
-          style={{
-            background: tab === 'open' ? 'rgba(245,217,96,0.12)' : 'transparent',
-            color: tab === 'open' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-          }}
+      {/* Tab bar + Draw up a prop */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-0.5 p-0.5 rounded-[4px] w-fit" style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-light)' }}>
+          <button
+            onClick={() => setTab('open')}
+            className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all cursor-pointer"
+            style={{
+              background: tab === 'open' ? 'rgba(245,217,96,0.12)' : 'transparent',
+              color: tab === 'open' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+            }}
+          >
+            On the Board
+          </button>
+          <button
+            onClick={() => { if (!authenticated) { login(); return; } setTab('mine'); }}
+            className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all cursor-pointer"
+            style={{
+              background: tab === 'mine' ? 'rgba(245,217,96,0.12)' : 'transparent',
+              color: tab === 'mine' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+            }}
+          >
+            My Board
+          </button>
+        </div>
+
+        <div
+          className="relative rounded-[6px] p-[1.5px] transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
+          style={{ background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8, #e85d5d)' }}
+          onClick={() => { if (!authenticated) { login(); return; } setShowCreate(true); }}
         >
-          On the Board
-        </button>
-        <button
-          onClick={() => { if (!authenticated) { login(); return; } setTab('mine'); }}
-          className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all cursor-pointer"
-          style={{
-            background: tab === 'mine' ? 'rgba(245,217,96,0.12)' : 'transparent',
-            color: tab === 'mine' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-          }}
-        >
-          My Board
-        </button>
+          <div
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[5px] text-xs chalk-header tracking-wide"
+            style={{ background: 'var(--board-dark)', color: 'var(--color-yellow)' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Draw up a prop
+          </div>
+        </div>
       </div>
 
       {/* Content */}
