@@ -213,28 +213,34 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
 
 function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) {
   const { getAccessToken } = useUser();
-  const [ttsText, setTtsText] = useState('');
+  const defaultScript = clip.clipTitle || clip.gameTitle || '';
+  const [ttsText, setTtsText] = useState(defaultScript);
   const [ttsVoice, setTtsVoice] = useState(TTS_VOICES[0].id);
-  const [generating, setGenerating] = useState(false);
+  const [step, setStep] = useState<'edit' | 'generating' | 'ready'>('edit');
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultBlob, setResultBlob] = useState<Blob | null>(null);
   const [copied, setCopied] = useState(false);
+  const [canShareFiles, setCanShareFiles] = useState(false);
 
-  const clipUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/clip/${clip.id}`;
+  useEffect(() => {
+    // Check if Web Share API supports file sharing (mobile browsers / X app)
+    if (typeof navigator !== 'undefined' && navigator.canShare) {
+      const testFile = new File(['test'], 'test.mp4', { type: 'video/mp4' });
+      setCanShareFiles(navigator.canShare({ files: [testFile] }));
+    }
+  }, []);
 
   async function handleGenerate() {
-    if (!ttsText.trim()) {
-      // No TTS, just share the link
-      setResultUrl(clipUrl);
-      return;
-    }
+    if (!ttsText.trim()) { setError('Add a voiceover to share'); return; }
     if (ttsText.length > 280) { setError('Max 280 characters'); return; }
 
-    setGenerating(true);
+    setStep('generating');
     setError('');
     try {
       // 1. Generate TTS
+      setProgress('Generating voiceover...');
       const token = await getAccessToken();
       const ttsRes = await fetch('/api/tts', {
         method: 'POST',
@@ -246,11 +252,11 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
         try { const data = await ttsRes.json(); errMsg = data.error || errMsg; } catch { /* */ }
         throw new Error(errMsg);
       }
-      // TTS returns raw MP3 binary — create blob URL
       const audioBlob = await ttsRes.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
 
       // 2. Fetch clip video through proxy to avoid CORS
+      setProgress('Loading clip...');
       const proxyUrl = `/api/clips/proxy?url=${encodeURIComponent(clip.url)}`;
       const videoRes = await fetch(proxyUrl);
       if (!videoRes.ok) throw new Error('Failed to load clip video');
@@ -258,6 +264,7 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
       const videoBlobUrl = URL.createObjectURL(videoBlob);
 
       // 3. Re-encode with TTS overlay
+      setProgress('Encoding video with voiceover...');
       const reencoded = await reencodeWithTTS(videoBlobUrl, audioUrl);
       URL.revokeObjectURL(videoBlobUrl);
       URL.revokeObjectURL(audioUrl);
@@ -265,10 +272,10 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
       const blobUrl = URL.createObjectURL(reencoded);
       setResultBlob(reencoded);
       setResultUrl(blobUrl);
+      setStep('ready');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to generate');
-    } finally {
-      setGenerating(false);
+      setStep('edit');
     }
   }
 
@@ -276,25 +283,43 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
     if (!resultBlob) return;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(resultBlob);
-    a.download = `chalk-clip-${clip.id}.webm`;
+    a.download = `chalk-clip-${clip.id}.mp4`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
   function handleCopyLink() {
+    const clipUrl = `${window.location.origin}/clip/${clip.id}`;
     navigator.clipboard.writeText(clipUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
 
-  function handleTwitter() {
-    const text = encodeURIComponent(`${ttsText || clip.clipTitle || clip.gameTitle || 'Check this clip'}\n\n${clipUrl}`);
-    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  async function handleShareVideo() {
+    if (!resultBlob) return;
+    const file = new File([resultBlob], 'chalk-clip.mp4', { type: 'video/mp4' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: clip.clipTitle || clip.gameTitle || 'Chalk Clip',
+          text: ttsText,
+        });
+      } catch {
+        // User cancelled or share failed — no-op
+      }
+    } else {
+      // Fallback: download the file
+      handleDownload();
+    }
   }
 
-  function handleWebShare() {
-    if (!navigator.share) return;
-    navigator.share({ title: clip.clipTitle || clip.gameTitle || 'Chalk Clip', text: ttsText || undefined, url: clipUrl }).catch(() => {});
+  function handleRedo() {
+    if (resultUrl) URL.revokeObjectURL(resultUrl);
+    setResultUrl(null);
+    setResultBlob(null);
+    setStep('edit');
   }
 
   return createPortal(
@@ -320,15 +345,30 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
 
         <div className="p-4 space-y-4">
           {/* Preview */}
-          {resultBlob ? (
-            <div className="rounded-[4px] overflow-hidden bg-black">
-              <video src={resultUrl!} autoPlay loop playsInline className="w-full object-contain" style={{ maxHeight: '30vh' }} />
-            </div>
-          ) : (
-            <div className="rounded-[4px] overflow-hidden bg-black">
-              <video src={clip.url} playsInline preload="metadata" className="w-full object-contain" style={{ maxHeight: '30vh' }} />
-            </div>
-          )}
+          <div className="rounded-[4px] overflow-hidden bg-black">
+            {resultUrl ? (
+              <video
+                key="result"
+                src={resultUrl}
+                autoPlay
+                loop
+                controls
+                playsInline
+                className="w-full object-contain"
+                style={{ maxHeight: '30vh' }}
+              />
+            ) : (
+              <video
+                key="original"
+                src={clip.url}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full object-contain"
+                style={{ maxHeight: '30vh' }}
+              />
+            )}
+          </div>
 
           {/* Game tag */}
           {clip.gameTitle && (
@@ -341,12 +381,12 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
             </div>
           )}
 
-          {/* TTS Input */}
-          {!resultBlob && (
+          {/* Step: Edit — voiceover input */}
+          {step === 'edit' && (
             <>
               <div>
                 <label className="block text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                  Add voiceover ({ttsText.length}/280)
+                  Voiceover ({ttsText.length}/280)
                 </label>
                 <textarea
                   value={ttsText}
@@ -364,29 +404,27 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
                 />
               </div>
 
-              {ttsText.trim() && (
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                    Voice
-                  </label>
-                  <select
-                    value={ttsVoice}
-                    onChange={(e) => setTtsVoice(e.target.value)}
-                    className="w-full px-3 py-2 rounded-[4px] text-sm cursor-pointer"
-                    style={{
-                      background: 'rgba(232,228,217,0.04)',
-                      border: '1px dashed rgba(232,228,217,0.1)',
-                      color: 'var(--chalk-white)',
-                      fontFamily: 'var(--font-chalk-body)',
-                      outline: 'none',
-                    }}
-                  >
-                    {TTS_VOICES.map((v) => (
-                      <option key={v.id} value={v.id} style={{ background: 'var(--board-dark)' }}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                  Voice
+                </label>
+                <select
+                  value={ttsVoice}
+                  onChange={(e) => setTtsVoice(e.target.value)}
+                  className="w-full px-3 py-2 rounded-[4px] text-sm cursor-pointer"
+                  style={{
+                    background: 'rgba(232,228,217,0.04)',
+                    border: '1px dashed rgba(232,228,217,0.1)',
+                    color: 'var(--chalk-white)',
+                    fontFamily: 'var(--font-chalk-body)',
+                    outline: 'none',
+                  }}
+                >
+                  {TTS_VOICES.map((v) => (
+                    <option key={v.id} value={v.id} style={{ background: 'var(--board-dark)' }}>{v.label}</option>
+                  ))}
+                </select>
+              </div>
 
               {error && (
                 <p className="text-xs" style={{ color: 'var(--color-red)', fontFamily: 'var(--font-chalk-body)' }}>{error}</p>
@@ -394,37 +432,64 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
 
               <button
                 onClick={handleGenerate}
-                disabled={generating}
-                className="w-full py-3 rounded-[4px] text-sm chalk-header tracking-wide cursor-pointer transition-all disabled:opacity-60"
+                className="w-full py-3 rounded-[4px] text-sm chalk-header tracking-wide cursor-pointer transition-all"
                 style={{
-                  background: generating ? 'rgba(245,217,96,0.08)' : 'rgba(245,217,96,0.12)',
+                  background: 'rgba(245,217,96,0.12)',
                   border: '1.5px dashed rgba(245,217,96,0.3)',
                   color: 'var(--color-yellow)',
                 }}
               >
-                {generating ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="inline-block w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                    Generating...
-                  </span>
-                ) : ttsText.trim() ? 'Generate with Voiceover' : 'Share Clip'}
+                Generate with Voiceover
               </button>
             </>
           )}
 
-          {/* Share actions after generation */}
-          {(resultBlob || resultUrl) && (
+          {/* Step: Generating — progress */}
+          {step === 'generating' && (
+            <div className="py-4 text-center space-y-3">
+              <span className="inline-block w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" style={{ color: 'var(--color-yellow)' }} />
+              <p className="text-xs chalk-header" style={{ color: 'var(--chalk-dim)' }}>{progress}</p>
+            </div>
+          )}
+
+          {/* Step: Ready — share actions */}
+          {step === 'ready' && (
             <div className="space-y-3">
-              <div className="flex gap-2">
-                {resultBlob && (
+              {/* Primary: Share video file (mobile) or Download (desktop) */}
+              {canShareFiles ? (
+                <button
+                  onClick={handleShareVideo}
+                  className="w-full py-3 rounded-[4px] text-sm chalk-header tracking-wide cursor-pointer transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(93,155,232,0.15)', border: '1.5px dashed rgba(93,155,232,0.4)', color: 'var(--color-blue)' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                    <polyline points="16 6 12 2 8 6" />
+                    <line x1="12" y1="2" x2="12" y2="15" />
+                  </svg>
+                  Share Video to X
+                </button>
+              ) : (
+                <div className="space-y-2">
                   <button
                     onClick={handleDownload}
-                    className="flex-1 py-2.5 rounded-[4px] text-xs chalk-header cursor-pointer transition-all"
-                    style={{ background: 'rgba(232,228,217,0.06)', border: '1.5px dashed rgba(232,228,217,0.1)', color: 'var(--chalk-dim)' }}
+                    className="w-full py-3 rounded-[4px] text-sm chalk-header tracking-wide cursor-pointer transition-all flex items-center justify-center gap-2"
+                    style={{ background: 'rgba(93,155,232,0.15)', border: '1.5px dashed rgba(93,155,232,0.4)', color: 'var(--color-blue)' }}
                   >
-                    Download
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download Video
                   </button>
-                )}
+                  <p className="text-[10px] text-center" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                    Download then upload directly to X for native video embedding
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
                 <button
                   onClick={handleCopyLink}
                   className="flex-1 py-2.5 rounded-[4px] text-xs chalk-header cursor-pointer transition-all"
@@ -436,24 +501,20 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
                 >
                   {copied ? 'Copied!' : 'Copy Link'}
                 </button>
-              </div>
-              <div className="flex gap-2">
                 <button
-                  onClick={handleTwitter}
+                  onClick={handleDownload}
                   className="flex-1 py-2.5 rounded-[4px] text-xs chalk-header cursor-pointer transition-all"
-                  style={{ background: 'rgba(93,155,232,0.12)', border: '1.5px dashed rgba(93,155,232,0.3)', color: 'var(--color-blue)' }}
+                  style={{ background: 'rgba(232,228,217,0.06)', border: '1.5px dashed rgba(232,228,217,0.1)', color: 'var(--chalk-dim)' }}
                 >
-                  Share on X
+                  Download
                 </button>
-                {typeof navigator !== 'undefined' && 'share' in navigator && (
-                  <button
-                    onClick={handleWebShare}
-                    className="flex-1 py-2.5 rounded-[4px] text-xs chalk-header cursor-pointer transition-all"
-                    style={{ background: 'rgba(232,168,93,0.12)', border: '1.5px dashed rgba(232,168,93,0.3)', color: 'var(--color-orange)' }}
-                  >
-                    Share
-                  </button>
-                )}
+                <button
+                  onClick={handleRedo}
+                  className="py-2.5 px-3 rounded-[4px] text-xs chalk-header cursor-pointer transition-all"
+                  style={{ background: 'rgba(232,93,93,0.08)', border: '1.5px dashed rgba(232,93,93,0.15)', color: 'var(--color-red)' }}
+                >
+                  Redo
+                </button>
               </div>
             </div>
           )}
@@ -464,80 +525,43 @@ function ClipShareModal({ clip, onClose }: { clip: Clip; onClose: () => void }) 
   );
 }
 
-function getSupportedMimeType(): string {
-  const types = [
-    'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8',
-    'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9',
-    'video/webm', 'video/mp4',
-  ];
-  for (const type of types) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
-  }
-  return 'video/webm';
-}
-
 async function reencodeWithTTS(videoBlobUrl: string, ttsAudioUrl: string): Promise<Blob> {
-  const mimeType = getSupportedMimeType();
+  const { FFmpeg } = await import('@ffmpeg/ffmpeg');
 
-  const video = document.createElement('video');
-  video.src = videoBlobUrl;
-  video.muted = true;
-  video.playsInline = true;
-  video.preload = 'auto';
-  await new Promise<void>((resolve) => { video.onloadeddata = () => resolve(); video.load(); });
+  const ffmpeg = new FFmpeg();
+  await ffmpeg.load();
 
-  const canvas = document.createElement('canvas');
-  const w = video.videoWidth || 640;
-  const h = video.videoHeight || 360;
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
-  const canvasStream = canvas.captureStream(24);
+  // Fetch video and audio as array buffers
+  const videoRes = await fetch(videoBlobUrl);
+  const videoType = videoRes.headers.get('content-type') || '';
+  const videoData = await videoRes.arrayBuffer();
+  const audioData = await (await fetch(ttsAudioUrl)).arrayBuffer();
 
-  // Decode TTS audio
-  const audioCtx = new AudioContext();
-  const audioResponse = await fetch(ttsAudioUrl);
-  const audioArrayBuffer = await audioResponse.arrayBuffer();
-  const audioBuffer = await audioCtx.decodeAudioData(audioArrayBuffer);
+  // Detect input format — clips from browser MediaRecorder are WebM
+  const isWebm = videoType.includes('webm') || !videoType.includes('mp4');
+  const inputName = isWebm ? 'input.webm' : 'input.mp4';
 
-  const dest = audioCtx.createMediaStreamDestination();
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(dest);
-  for (const track of dest.stream.getAudioTracks()) canvasStream.addTrack(track);
+  await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
+  await ffmpeg.writeFile('audio.mp3', new Uint8Array(audioData));
 
-  const chunks: Blob[] = [];
-  const recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: 2_500_000 });
-  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+  // Re-encode to H.264 + AAC MP4 — Twitter/QuickTime compatible
+  await ffmpeg.exec([
+    '-i', inputName,
+    '-i', 'audio.mp3',
+    '-c:v', 'libx264',
+    '-preset', 'ultrafast',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-map', '0:v:0',
+    '-map', '1:a:0',
+    '-shortest',
+    '-movflags', '+faststart',
+    'output.mp4',
+  ]);
 
-  recorder.start(200);
-  source.start(0);
-  video.play().catch(() => {});
+  const data = await ffmpeg.readFile('output.mp4') as Uint8Array;
+  ffmpeg.terminate();
 
-  let animFrame = 0;
-  function draw() {
-    ctx.drawImage(video, 0, 0, w, h);
-    if (!video.paused && !video.ended) animFrame = requestAnimationFrame(draw);
-  }
-  draw();
-
-  await new Promise<void>((resolve) => {
-    function check() {
-      if (video.ended || video.paused) { resolve(); return; }
-      requestAnimationFrame(check);
-    }
-    check();
-  });
-
-  video.pause();
-  cancelAnimationFrame(animFrame);
-  try { source.stop(); } catch { /* */ }
-
-  const blob = await new Promise<Blob>((resolve) => {
-    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
-    recorder.stop();
-  });
-
-  for (const track of canvasStream.getTracks()) track.stop();
-  audioCtx.close().catch(() => {});
-  return blob;
+  return new Blob([new Uint8Array(data.buffer as ArrayBuffer)], { type: 'video/mp4' });
 }

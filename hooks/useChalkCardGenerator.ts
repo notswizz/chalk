@@ -4,12 +4,7 @@ import { useState, useCallback } from 'react';
 import { Bet } from '@/components/betting/BetCard';
 import { drawChalkCardStatic, ChalkCardFormat, FORMAT_SIZES, ChalkCardPerspective } from '@/lib/chalk-card-renderer';
 
-interface UseChalkCardGeneratorReturn {
-  generate: (bet: Bet, format: ChalkCardFormat, perspective?: ChalkCardPerspective) => Promise<Blob>;
-  isGenerating: boolean;
-}
-
-export function useChalkCardGenerator(): UseChalkCardGeneratorReturn {
+export function useChalkCardGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(async (

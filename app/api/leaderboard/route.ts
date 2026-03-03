@@ -14,6 +14,9 @@ interface UserStats {
   percentGain: number;
   volume: number;
   betsCount: number;
+  openBets: number;
+  liveBets: number;
+  pendingChalk: number;
 }
 
 // In-memory cache
@@ -32,6 +35,16 @@ export async function GET() {
       query(collection(firestore, 'bets'), where('status', '==', 'settled'))
     );
 
+    // Query open bets
+    const openSnap = await getDocs(
+      query(collection(firestore, 'bets'), where('status', '==', 'open'))
+    );
+
+    // Query matched (live) bets
+    const matchedSnap = await getDocs(
+      query(collection(firestore, 'bets'), where('status', '==', 'matched'))
+    );
+
     // Build stats map
     const statsMap = new Map<string, {
       wins: number;
@@ -40,15 +53,22 @@ export async function GET() {
       totalProfit: number;
       volume: number;
       betsCount: number;
+      openBets: number;
+      liveBets: number;
+      pendingChalk: number;
     }>();
 
     const getOrCreate = (userId: string) => {
       if (!statsMap.has(userId)) {
-        statsMap.set(userId, { wins: 0, losses: 0, pushes: 0, totalProfit: 0, volume: 0, betsCount: 0 });
+        statsMap.set(userId, {
+          wins: 0, losses: 0, pushes: 0, totalProfit: 0, volume: 0, betsCount: 0,
+          openBets: 0, liveBets: 0, pendingChalk: 0,
+        });
       }
       return statsMap.get(userId)!;
     };
 
+    // Process settled bets
     for (const doc of betsSnap.docs) {
       const bet = doc.data();
       const { creatorId, takerId, creatorStake, takerStake, result } = bet;
@@ -58,11 +78,8 @@ export async function GET() {
       const creatorStats = getOrCreate(creatorId);
       const takerStats = getOrCreate(takerId);
 
-      // Creator side
       creatorStats.volume += creatorStake;
       creatorStats.betsCount += 1;
-
-      // Taker side
       takerStats.volume += takerStake;
       takerStats.betsCount += 1;
 
@@ -77,10 +94,36 @@ export async function GET() {
         creatorStats.losses += 1;
         creatorStats.totalProfit -= creatorStake;
       } else {
-        // push
         creatorStats.pushes += 1;
         takerStats.pushes += 1;
       }
+    }
+
+    // Process open bets (only creator has stake locked)
+    for (const doc of openSnap.docs) {
+      const bet = doc.data();
+      const { creatorId, creatorStake } = bet;
+      if (!creatorId) continue;
+
+      const stats = getOrCreate(creatorId);
+      stats.openBets += 1;
+      stats.pendingChalk += creatorStake || 0;
+    }
+
+    // Process matched (live) bets (both sides have stake locked)
+    for (const doc of matchedSnap.docs) {
+      const bet = doc.data();
+      const { creatorId, takerId, creatorStake, takerStake } = bet;
+      if (!creatorId || !takerId) continue;
+
+      const creatorStats = getOrCreate(creatorId);
+      const takerStats = getOrCreate(takerId);
+
+      creatorStats.liveBets += 1;
+      creatorStats.pendingChalk += creatorStake || 0;
+
+      takerStats.liveBets += 1;
+      takerStats.pendingChalk += takerStake || 0;
     }
 
     // Query all users for display names and avatars
@@ -111,6 +154,9 @@ export async function GET() {
         percentGain: stats.volume > 0 ? Math.round((stats.totalProfit / stats.volume) * 1000) / 10 : 0,
         volume: Math.round(stats.volume * 100) / 100,
         betsCount: stats.betsCount,
+        openBets: stats.openBets,
+        liveBets: stats.liveBets,
+        pendingChalk: Math.round(stats.pendingChalk * 100) / 100,
       });
     }
 
