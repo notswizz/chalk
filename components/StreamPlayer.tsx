@@ -18,7 +18,7 @@ export function StreamPlayer({ stream, gameId, gameTitle }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -225,6 +225,7 @@ export function StreamPlayer({ stream, gameId, gameTitle }: StreamPlayerProps) {
         <video
           ref={videoRef}
           autoPlay
+          muted
           playsInline
           className="w-full h-full"
         />

@@ -21,9 +21,12 @@ export function StreamSourceButton({ stream, active, index, onClick, voteScore, 
         : 'var(--chalk-ghost)';
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`relative flex flex-col gap-1 px-4 py-2.5 rounded-[4px] text-sm font-semibold transition-all duration-200 ${
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      className={`relative flex flex-col gap-1 px-4 py-2.5 rounded-[4px] text-sm font-semibold transition-all duration-200 cursor-pointer ${
         active
           ? 'scale-[1.02]'
           : 'hover:scale-[1.01]'
@@ -99,6 +102,6 @@ export function StreamSourceButton({ stream, active, index, onClick, voteScore, 
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }

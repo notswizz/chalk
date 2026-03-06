@@ -6,6 +6,7 @@ const ALLOWED_HOST_PATTERNS = [
   /\.?aapmains\.net$/,
   /\.?scdnmain\.net$/,
   /\.space$/,         // covers kamfir8, wecanfix3, zenithstellar, heisdead3, etc.
+  /\.shop$/,          // covers ignitestratos, etc.
   /\.?topembed\./,
   /\.?dlhd\./,
   /\.?embedme\./,
