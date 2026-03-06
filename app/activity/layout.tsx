@@ -1,11 +1,11 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Activity',
-  description: 'Your betting history — wins, losses, and everything on the board.',
+  title: 'Activity — Your Player Prop Betting History',
+  description: 'Track your NBA player prop bets — wins, losses, pushes, and profit. Full betting history with real-time results from live games on Chalk.',
   openGraph: {
-    title: 'Activity | Chalk',
-    description: 'Your betting history — wins, losses, and everything on the board.',
+    title: 'Betting Activity & History | Chalk',
+    description: 'Track your NBA player prop bets — wins, losses, and profit on Chalk.',
   },
 };
 

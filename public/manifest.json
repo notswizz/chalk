@@ -1,12 +1,13 @@
 {
-  "name": "Chalk",
+  "name": "Chalk — Free Live Sports Streams & Player Props",
   "short_name": "Chalk",
-  "description": "Live sports streams and props on the board",
+  "description": "Watch free live NBA streams, bet on player props, and compete with friends. The best StreamEast & Buffstreams alternative.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a2a1a",
   "theme_color": "#1a2a1a",
   "orientation": "portrait-primary",
+  "categories": ["sports", "entertainment"],
   "icons": [
     {
       "src": "/chalk-logo.png",

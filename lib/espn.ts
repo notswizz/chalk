@@ -107,7 +107,7 @@ export async function fetchPlayerBoxScore(gameId: string): Promise<PlayerBoxScor
   for (const team of teams) {
     const athletes = team.statistics?.[0]?.athletes ?? [];
     for (const a of athletes) {
-      if (a.didNotPlay || !a.active || !a.stats?.length) continue;
+      if (a.didNotPlay || !a.stats?.length) continue;
       const name: string = a.athlete?.displayName ?? '';
       if (!name) continue;
 

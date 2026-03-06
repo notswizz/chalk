@@ -1,11 +1,11 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Favorites',
-  description: 'Your saved games — quick access to the matchups you care about.',
+  title: 'Favorites — Your Saved NBA Games & Teams',
+  description: 'Quick access to your favorite NBA teams and matchups. Follow live games, get scores, and bet on player props for the teams you care about on Chalk.',
   openGraph: {
-    title: 'Favorites | Chalk',
-    description: 'Your saved games — quick access to the matchups you care about.',
+    title: 'Favorite Teams & Games | Chalk',
+    description: 'Follow your favorite NBA teams with live scores and player prop betting on Chalk.',
   },
 };
 

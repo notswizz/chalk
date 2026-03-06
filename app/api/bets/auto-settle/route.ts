@@ -81,10 +81,32 @@ export async function POST(req: Request) {
           const actualValue = findPlayerStat(players, bet.player, bet.stat);
 
           if (actualValue === null) {
-            // Player not found in box score — stamp postDetectedAt and wait for next call
             if (!bet.postDetectedAt) {
+              // First time: stamp and wait for next cycle in case ESPN is delayed
               tx.update(betRef, { postDetectedAt: Date.now() });
+              return;
             }
+            // Already waited — settle as push (player DNP or not in game)
+            didSettle = true;
+            const creatorRef = doc(firestore, 'users', bet.creatorId);
+            const takerRef = doc(firestore, 'users', bet.takerId);
+            const cSnap = await tx.get(creatorRef);
+            const tSnap = await tx.get(takerRef);
+            if (cSnap.exists()) {
+              tx.update(creatorRef, { coins: (cSnap.data().coins ?? 0) + bet.creatorStake });
+            }
+            if (tSnap.exists()) {
+              tx.update(takerRef, { coins: (tSnap.data().coins ?? 0) + bet.takerStake });
+            }
+            tx.update(betRef, {
+              status: 'settled',
+              actualValue: null,
+              actualDirection: null,
+              result: 'push',
+              autoSettled: true,
+              settledAt: Date.now(),
+              settleReason: 'player_not_found',
+            });
             return;
           }
 
