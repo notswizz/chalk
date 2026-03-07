@@ -2,26 +2,39 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BetCard, Bet } from '@/components/betting/BetCard';
+import { TournamentPropCard } from '@/components/betting/TournamentPropCard';
+import { CreateTournamentProp } from '@/components/betting/CreateTournamentProp';
 import { useUser } from '@/hooks/useUser';
+import { TournamentProp } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 const TABS = [
   { key: 'open' as const, label: 'On the Board', color: 'var(--color-green)', bg: 'rgba(93,232,138,0.1)' },
   { key: 'live' as const, label: 'Live Chalk', color: 'var(--color-yellow)', bg: 'rgba(245,217,96,0.1)' },
-  { key: 'validate' as const, label: 'Score Check', color: 'var(--color-orange)', bg: 'rgba(232,168,93,0.1)' },
+];
+
+const SPORT_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'nba', label: 'NBA' },
+  { key: 'ncaam', label: 'NCAA' },
+  { key: 'tournament', label: '🏆 Tournament' },
 ];
 
 export default function BetsPage() {
   const { userId, authenticated } = useUser();
-  const [tab, setTab] = useState<'open' | 'live' | 'validate'>('open');
+  const [tab, setTab] = useState<'open' | 'live'>('open');
   const [mineOnly, setMineOnly] = useState(false);
   const [bets, setBets] = useState<Bet[]>([]);
+  const [tournamentProps, setTournamentProps] = useState<TournamentProp[]>([]);
   const [gameStates, setGameStates] = useState<Record<string, string>>({});
+  const [gameSports, setGameSports] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const autoSettledGames = useRef<Set<string>>(new Set());
   const [filterStat, setFilterStat] = useState<string>('all');
   const [filterGame, setFilterGame] = useState<string>('all');
+  const [sportFilter, setSportFilter] = useState<string>('all');
+  const [showCreateTournament, setShowCreateTournament] = useState(false);
 
   const fetchBets = useCallback(async () => {
     setLoading(true);
@@ -29,7 +42,8 @@ export default function BetsPage() {
       const status = tab === 'open' ? 'open' : 'matched';
       const res = await fetch(`/api/bets/all?status=${status}`);
       const data = await res.json();
-      const loadedBets: Bet[] = data.bets ?? [];
+      // Filter out tournament props from regular bets — they're fetched separately
+      const loadedBets: Bet[] = (data.bets ?? []).filter((b: any) => b.type !== 'tournament');
 
       if (loadedBets.length > 0) {
         const gameIds = [...new Set(loadedBets.map((b) => b.gameId))];
@@ -37,10 +51,33 @@ export default function BetsPage() {
           const gamesRes = await fetch(`/api/scores?ids=${gameIds.join(',')}`);
           const gamesData = await gamesRes.json();
           const states: Record<string, string> = {};
+          const sports: Record<string, string> = {};
+          const gameTeams: Record<string, { away: string; home: string; awayLogo: string; homeLogo: string }> = {};
           for (const g of gamesData.games ?? []) {
             states[g.id] = g.state;
+            if (g.sport) sports[g.id] = g.sport;
+            if (g.awayTeam && g.homeTeam) {
+              gameTeams[g.id] = {
+                away: g.awayTeam.abbreviation || '',
+                home: g.homeTeam.abbreviation || '',
+                awayLogo: g.awayTeam.logo || '',
+                homeLogo: g.homeTeam.logo || '',
+              };
+            }
           }
           setGameStates(states);
+          setGameSports(sports);
+
+          // Enrich bets with team data from game data
+          for (const b of loadedBets) {
+            const t = gameTeams[b.gameId];
+            if (t) {
+              if (!b.awayTeam) b.awayTeam = t.away;
+              if (!b.homeTeam) b.homeTeam = t.home;
+              if (!b.awayTeamLogo) b.awayTeamLogo = t.awayLogo;
+              if (!b.homeTeamLogo) b.homeTeamLogo = t.homeLogo;
+            }
+          }
 
           // Auto-settle/cancel bets for games that have ended
           for (const g of gamesData.games ?? []) {
@@ -60,15 +97,11 @@ export default function BetsPage() {
               const state = states[b.gameId];
               return state !== 'post';
             }));
-          } else if (tab === 'live') {
+          } else {
+            // Live tab: show matched bets for active/upcoming games
             setBets(loadedBets.filter((b) => {
               const state = states[b.gameId];
               return state === 'in' || state === 'pre';
-            }));
-          } else {
-            setBets(loadedBets.filter((b) => {
-              const state = states[b.gameId];
-              return state === 'post' || !state;
             }));
           }
         } catch {
@@ -77,6 +110,14 @@ export default function BetsPage() {
       } else {
         setBets(loadedBets);
       }
+      // Fetch tournament props
+      try {
+        const tStatus = tab === 'open' ? 'open' : 'matched';
+        const tRes = await fetch(`/api/bets/all?status=${tStatus}&type=tournament`);
+        const tData = await tRes.json();
+        setTournamentProps(tData.bets ?? []);
+      } catch { setTournamentProps([]); }
+
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, [tab]);
@@ -84,13 +125,38 @@ export default function BetsPage() {
   useEffect(() => { fetchBets(); }, [fetchBets]);
 
   // Derive unique stats and games for filter dropdowns
-  const statOptions = [...new Set(bets.map((b) => b.stat))].sort();
+  const statOptions = [...new Set(bets.map((b) => b.stat).filter(Boolean))].sort();
   const gameOptions = [...new Set(bets.filter((b) => b.gameTitle).map((b) => b.gameTitle!))].sort();
 
+  const showTournamentSection = sportFilter === 'all' || sportFilter === 'tournament';
+
   const filteredBets = bets
-    .filter((b) => !mineOnly || !userId || b.creatorId === userId || b.takerId === userId)
+    .filter((b) => {
+      if (mineOnly) return userId && (b.creatorId === userId || b.takerId === userId);
+      // When not mine-only, exclude user's own bets
+      return !userId || (b.creatorId !== userId && b.takerId !== userId);
+    })
     .filter((b) => filterStat === 'all' || b.stat === filterStat)
-    .filter((b) => filterGame === 'all' || b.gameTitle === filterGame);
+    .filter((b) => filterGame === 'all' || b.gameTitle === filterGame)
+    .filter((b) => {
+      if (sportFilter === 'all') return true;
+      if (sportFilter === 'tournament') return false;
+      // Use game's sport from scores data, fall back to bet's sport field, then default nba
+      const betSport = gameSports[b.gameId] || (b as any).sport || 'nba';
+      return betSport === sportFilter;
+    });
+
+  const showRegularSection = filteredBets.length > 0;
+
+  const filteredTournamentProps = showTournamentSection
+    ? tournamentProps
+        .filter((p) => {
+          if (mineOnly) return userId && (p.creatorId === userId || p.takerId === userId);
+          return !userId || (p.creatorId !== userId && p.takerId !== userId);
+        })
+    : [];
+
+  const totalFiltered = filteredBets.length + filteredTournamentProps.length;
 
   const activeTab = TABS.find((t) => t.key === tab)!;
 
@@ -101,9 +167,9 @@ export default function BetsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>The Board</h1>
-            {!loading && filteredBets.length > 0 && (
+            {!loading && totalFiltered > 0 && (
               <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold tabular-nums" style={{ background: activeTab.bg, color: activeTab.color }}>
-                {filteredBets.length}
+                {totalFiltered}
               </span>
             )}
             {authenticated && (
@@ -129,7 +195,7 @@ export default function BetsPage() {
             {TABS.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key)}
+                onClick={() => { setTab(t.key); if (t.key === 'live') setMineOnly(true); }}
                 className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all duration-200 cursor-pointer"
                 style={{
                   background: tab === t.key ? t.bg : 'transparent',
@@ -140,6 +206,38 @@ export default function BetsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Sport filter tabs */}
+        <div className="flex items-center gap-1.5 mt-3">
+          {SPORT_FILTERS.map((sf) => (
+            <button
+              key={sf.key}
+              onClick={() => setSportFilter(sf.key)}
+              className="px-2.5 py-1 rounded-[4px] text-[10px] font-bold transition-all duration-200 cursor-pointer"
+              style={{
+                background: sportFilter === sf.key ? 'rgba(245,217,96,0.12)' : 'transparent',
+                border: `1px dashed ${sportFilter === sf.key ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
+                color: sportFilter === sf.key ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+              }}
+            >
+              {sf.label}
+            </button>
+          ))}
+          {authenticated && (
+            <div
+              className="ml-auto relative rounded-[6px] p-[1.5px] transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8, #e85d5d)' }}
+              onClick={() => setShowCreateTournament(true)}
+            >
+              <div
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[5px] text-[11px] chalk-header tracking-wide"
+                style={{ background: 'var(--board-dark)', color: 'var(--color-yellow)' }}
+              >
+                🏆 Tournament Prop
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -202,9 +300,39 @@ export default function BetsPage() {
               <div key={i} className="shimmer rounded-[4px] h-[200px]" />
             ))}
           </div>
-        ) : filteredBets.length === 0 ? (
+        ) : totalFiltered === 0 ? (
           <EmptyState tab={tab} mineOnly={mineOnly} />
+        ) : sportFilter === 'all' ? (
+          /* All filter: merge everything into one grid sorted by createdAt */
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
+            {[
+              ...filteredBets.map((b) => ({ kind: 'bet' as const, item: b, createdAt: b.createdAt })),
+              ...filteredTournamentProps.map((p) => ({ kind: 'tournament' as const, item: p, createdAt: p.createdAt })),
+            ]
+              .sort((a, b) => b.createdAt - a.createdAt)
+              .map((entry) =>
+                entry.kind === 'bet' ? (
+                  <BetCard
+                    key={entry.item.id}
+                    bet={entry.item}
+                    onUpdate={fetchBets}
+                    showGame
+                    gameOver={gameStates[entry.item.gameId] === 'post' || !gameStates[entry.item.gameId]}
+                  />
+                ) : (
+                  <TournamentPropCard key={entry.item.id} prop={entry.item} onUpdate={fetchBets} />
+                )
+              )}
+          </div>
+        ) : sportFilter === 'tournament' ? (
+          /* Tournament only */
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
+            {filteredTournamentProps.map((prop) => (
+              <TournamentPropCard key={prop.id} prop={prop} onUpdate={fetchBets} />
+            ))}
+          </div>
         ) : (
+          /* NBA or NCAA player props only */
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
             {filteredBets.map((bet) => (
               <BetCard
@@ -216,6 +344,14 @@ export default function BetsPage() {
               />
             ))}
           </div>
+        )}
+
+        {/* Create Tournament Prop modal */}
+        {showCreateTournament && (
+          <CreateTournamentProp
+            onClose={() => setShowCreateTournament(false)}
+            onCreated={() => { setShowCreateTournament(false); fetchBets(); }}
+          />
         )}
       </div>
     </div>
@@ -241,15 +377,6 @@ function EmptyState({ tab, mineOnly }: { tab: string; mineOnly?: boolean }) {
       ),
       title: 'No live chalk',
       subtitle: 'Matched props appear here during games',
-    },
-    validate: {
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--chalk-ghost)' }}>
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-      ),
-      title: 'Nothing to check',
-      subtitle: 'Props move here after the buzzer',
     },
   };
 

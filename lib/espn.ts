@@ -1,8 +1,12 @@
-import { Game, Sport, Team } from './types';
+import { Game, Sport, SportConfig, SPORTS, Team, TournamentTeam } from './types';
 
-const ENDPOINTS: Record<Sport, string> = {
-  nba: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
-};
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+
+function getEndpoint(sport: Sport): string {
+  const config = SPORTS.find((s) => s.key === sport);
+  if (!config) throw new Error(`Unknown sport: ${sport}`);
+  return `${ESPN_BASE}/${config.espnPath}/scoreboard`;
+}
 
 /** Today's date as YYYYMMDD in US Eastern (NBA schedule timezone). */
 function getTodayET(): string {
@@ -22,6 +26,7 @@ function parseGame(event: any, sport: Sport): Game {
   const away = competitors.find((c: any) => c.homeAway === 'away');
 
   const toTeam = (c: any, side: 'home' | 'away'): Team => ({
+    id: c?.team?.id ?? '',
     abbreviation: c?.team?.abbreviation ?? '???',
     displayName: c?.team?.displayName ?? 'Unknown',
     logo: c?.team?.logo ?? '',
@@ -53,7 +58,8 @@ function parseGame(event: any, sport: Sport): Game {
 
 export async function fetchGames(sport: Sport): Promise<Game[]> {
   const dateParam = getTodayET();
-  const res = await fetch(`${ENDPOINTS[sport]}?dates=${dateParam}`, { next: { revalidate: 30 } });
+  const endpoint = getEndpoint(sport);
+  const res = await fetch(`${endpoint}?dates=${dateParam}&limit=100`, { next: { revalidate: 30 } });
   if (!res.ok) return [];
   const data = await res.json();
   const events = data.events ?? [];
@@ -61,8 +67,8 @@ export async function fetchGames(sport: Sport): Promise<Game[]> {
 }
 
 export async function fetchAllGames(): Promise<Game[]> {
-  const sports: Sport[] = ['nba'];
-  const results = await Promise.allSettled(sports.map((s) => fetchGames(s)));
+  const enabledSports = SPORTS.filter((s) => s.enabled).map((s) => s.key);
+  const results = await Promise.allSettled(enabledSports.map((s) => fetchGames(s)));
   const games = results
     .filter((r) => r.status === 'fulfilled')
     .flatMap((r) => (r as PromiseFulfilledResult<Game[]>).value);
@@ -152,55 +158,143 @@ export function findPlayerStat(
   return match.stats[stat] ?? null;
 }
 
-export async function fetchGameById(gameId: string): Promise<Game | null> {
-  // Fetch the single game summary directly instead of loading all games
+/** Detect tournament round from ESPN event notes. */
+export function detectTournamentRound(event: any): string | null {
+  const headline: string = event.competitions?.[0]?.notes?.[0]?.headline || '';
+  if (headline.includes('First Round')) return 'round_of_64';
+  if (headline.includes('Second Round')) return 'round_of_32';
+  if (headline.includes('Sweet 16')) return 'sweet_16';
+  if (headline.includes('Elite Eight') || headline.includes('Elite 8')) return 'elite_eight';
+  if (headline.includes('Final Four')) return 'final_four';
+  if (headline.includes('National Championship') || headline.includes('Championship')) return 'championship';
+  return null;
+}
+
+/** Fetch NCAA tournament scoreboard with expanded date range. */
+export async function fetchTournamentGames(): Promise<{ games: Game[]; roundMap: Record<string, string> }> {
+  const now = new Date();
+  const year = now.getFullYear();
+  // Tournament typically runs mid-March through early April
+  const startDate = `${year}0301`;
+  const endDate = `${year}0410`;
+  const res = await fetch(
+    `${ESPN_BASE}/basketball/mens-college-basketball/scoreboard?dates=${startDate}-${endDate}&limit=100`,
+    { next: { revalidate: 60 } }
+  );
+  if (!res.ok) return { games: [], roundMap: {} };
+  const data = await res.json();
+  const events = data.events ?? [];
+
+  const games: Game[] = [];
+  const roundMap: Record<string, string> = {};
+
+  for (const event of events) {
+    const round = detectTournamentRound(event);
+    if (round) {
+      const game = parseGame(event, 'ncaam');
+      games.push(game);
+      roundMap[game.id] = round;
+    }
+  }
+
+  return { games, roundMap };
+}
+
+/** Fetch tournament teams from ESPN rankings endpoint. */
+export async function fetchTournamentTeams(): Promise<TournamentTeam[]> {
   try {
     const res = await fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`,
-      { next: { revalidate: 30 } }
+      `${ESPN_BASE}/basketball/mens-college-basketball/rankings`,
+      { next: { revalidate: 300 } }
     );
-    if (!res.ok) {
-      // Fallback to scoreboard scan
-      const allGames = await fetchAllGames();
-      return allGames.find((g) => g.id === gameId) ?? null;
-    }
+    if (!res.ok) return [];
     const data = await res.json();
-    const event = data.header?.competitions?.[0];
-    if (!event) return null;
+    const teams: TournamentTeam[] = [];
+    const seen = new Set<string>();
 
-    const competitors = event.competitors ?? [];
-    const home = competitors.find((c: any) => c.homeAway === 'home');
-    const away = competitors.find((c: any) => c.homeAway === 'away');
-
-    const toTeam = (c: any, side: 'home' | 'away'): Team => ({
-      abbreviation: c?.team?.abbreviation ?? '???',
-      displayName: c?.team?.displayName ?? 'Unknown',
-      logo: c?.team?.logo ?? c?.team?.logos?.[0]?.href ?? '',
-      score: c?.score ?? '0',
-      homeAway: side,
-    });
-
-    const statusType = event.status?.type ?? {};
-
-    return {
-      id: gameId,
-      sport: 'nba',
-      date: data.header?.competitions?.[0]?.date ?? '',
-      state: statusType.state ?? 'pre',
-      displayClock: event.status?.displayClock ?? '',
-      period: event.status?.period ?? 0,
-      shortDetail: statusType.shortDetail ?? '',
-      homeTeam: toTeam(home, 'home'),
-      awayTeam: toTeam(away, 'away'),
-      venue: data.gameInfo?.venue?.fullName ?? '',
-      broadcast:
-        event.broadcasts?.[0]?.names?.join(', ') ??
-        event.geoBroadcasts?.[0]?.media?.shortName ??
-        '',
-    };
+    for (const ranking of data.rankings ?? []) {
+      for (const rank of ranking.ranks ?? []) {
+        const team = rank.team;
+        if (!team || seen.has(team.id)) continue;
+        seen.add(team.id);
+        teams.push({
+          id: team.id,
+          name: team.name || team.displayName || 'Unknown',
+          abbreviation: team.abbreviation || '???',
+          seed: rank.current ?? 0,
+          logo: team.logo || team.logos?.[0]?.href || '',
+        });
+      }
+    }
+    return teams;
   } catch {
-    // Fallback to scoreboard scan
-    const allGames = await fetchAllGames();
-    return allGames.find((g) => g.id === gameId) ?? null;
+    return [];
   }
+}
+
+const gameCache = new Map<string, { data: Game; expires: number }>();
+const GAME_CACHE_TTL = 30 * 1000; // 30 seconds
+
+export async function fetchGameById(gameId: string): Promise<Game | null> {
+  const cached = gameCache.get(gameId);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
+  // Try each sport's summary endpoint until one works
+  const sportPaths: { path: string; sport: Sport }[] = [
+    { path: 'basketball/nba', sport: 'nba' },
+    { path: 'basketball/mens-college-basketball', sport: 'ncaam' },
+  ];
+
+  for (const { path, sport } of sportPaths) {
+    try {
+      const res = await fetch(
+        `${ESPN_BASE}/${path}/summary?event=${gameId}`,
+        { next: { revalidate: 30 } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      const event = data.header?.competitions?.[0];
+      if (!event) continue;
+
+      const competitors = event.competitors ?? [];
+      const home = competitors.find((c: any) => c.homeAway === 'home');
+      const away = competitors.find((c: any) => c.homeAway === 'away');
+
+      const toTeam = (c: any, side: 'home' | 'away'): Team => ({
+        id: c?.team?.id ?? '',
+        abbreviation: c?.team?.abbreviation ?? '???',
+        displayName: c?.team?.displayName ?? 'Unknown',
+        logo: c?.team?.logo ?? c?.team?.logos?.[0]?.href ?? '',
+        score: c?.score ?? '0',
+        homeAway: side,
+      });
+
+      const statusType = event.status?.type ?? {};
+
+      const game: Game = {
+        id: gameId,
+        sport,
+        date: data.header?.competitions?.[0]?.date ?? '',
+        state: statusType.state ?? 'pre',
+        displayClock: event.status?.displayClock ?? '',
+        period: event.status?.period ?? 0,
+        shortDetail: statusType.shortDetail ?? '',
+        homeTeam: toTeam(home, 'home'),
+        awayTeam: toTeam(away, 'away'),
+        venue: data.gameInfo?.venue?.fullName ?? '',
+        broadcast:
+          event.broadcasts?.[0]?.names?.join(', ') ??
+          event.geoBroadcasts?.[0]?.media?.shortName ??
+          '',
+      };
+      gameCache.set(gameId, { data: game, expires: Date.now() + GAME_CACHE_TTL });
+      return game;
+    } catch {
+      continue;
+    }
+  }
+
+  // Final fallback: scoreboard scan
+  const allGames = await fetchAllGames();
+  return allGames.find((g) => g.id === gameId) ?? null;
 }

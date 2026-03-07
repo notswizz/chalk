@@ -216,7 +216,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const currentStream = streams[activeStream];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pt-4 pb-6 fade-up">
+    <div className="max-w-7xl mx-auto px-4 pt-4 pb-6 fade-up">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4">
         <Link
@@ -247,9 +247,17 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
-      {/* Main layout: side by side on desktop, stacked on mobile */}
-      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-        {/* Left: Scoreboard + Player + Sources + Chat */}
+      {/* Main layout: 3-column on desktop (Chat | Player | Board), stacked on mobile */}
+      <div className="flex flex-col lg:flex-row lg:items-start gap-3">
+        {/* Left: Chat + Clips — skinny */}
+        <div className="hidden lg:flex lg:flex-col lg:w-[220px] lg:flex-shrink-0">
+          <GameChat gameId={id} />
+          <div className="mt-3">
+            <GameClips gameId={id} />
+          </div>
+        </div>
+
+        {/* Center: Scoreboard + Player + Sources — takes most space */}
         <div className="flex-1 min-w-0">
           {/* Score card — compact, above player */}
           <div className="mb-3 p-4 rounded-[4px] chalk-card">
@@ -318,7 +326,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
 
           {/* Video player */}
           {currentStream ? (
-            <div className="rounded-[4px] overflow-hidden shadow-2xl shadow-black/50">
+            <div className="rounded-[6px] overflow-hidden shadow-2xl shadow-black/50" style={{ border: '1.5px dashed rgba(232,228,217,0.15)' }}>
               <StreamPlayer stream={currentStream} gameId={id} gameTitle={`${game.awayTeam.displayName} vs ${game.homeTeam.displayName}`} />
             </div>
           ) : (
@@ -371,14 +379,20 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
 
         </div>
 
-        {/* Right: Chat + Bet Feed (sidebar) */}
-        <div className="lg:w-[340px] lg:flex-shrink-0">
-          <GameChat gameId={id} />
+        {/* Right: Bet Feed — slim */}
+        <div className="lg:w-[260px] lg:flex-shrink-0">
+          {/* Mobile chat (hidden on desktop since it's in left column) */}
+          <div className="lg:hidden">
+            <GameChat gameId={id} />
+          </div>
           <BetFeed
             gameId={id}
             gameTitle={`${game.awayTeam.displayName} vs ${game.homeTeam.displayName}`}
             gameOver={game.state === 'post'}
             teams={[game.awayTeam.abbreviation, game.homeTeam.abbreviation]}
+            teamIds={[game.awayTeam.id || '', game.homeTeam.id || '']}
+            teamLogos={[game.awayTeam.logo, game.homeTeam.logo]}
+            sport={game.sport}
           />
         </div>
       </div>

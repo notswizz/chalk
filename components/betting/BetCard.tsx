@@ -15,6 +15,13 @@ export interface Bet {
   gameId: string;
   gameTitle?: string;
   player: string;
+  playerId?: string;
+  playerTeam?: string;
+  awayTeam?: string;
+  homeTeam?: string;
+  awayTeamLogo?: string;
+  homeTeamLogo?: string;
+  sport?: string;
   stat: string;
   target: number;
   direction: string;
@@ -25,6 +32,62 @@ export interface Bet {
   result?: string;
   actualValue?: number;
   createdAt: number;
+}
+
+function getPlayerHeadshot(playerId?: string, sport?: string): string | null {
+  if (!playerId) return null;
+  const league = sport === 'ncaam' ? 'mens-college-basketball' : 'nba';
+  return `https://a.espncdn.com/combiner/i?img=/i/headshots/${league}/players/full/${playerId}.png&w=96&h=70`;
+}
+
+function getTeamLogo(abbrev: string, sport?: string): string {
+  const league = sport === 'ncaam' ? 'ncaa' : 'nba';
+  return `https://a.espncdn.com/i/teamlogos/${league}/500/${abbrev.toLowerCase()}.png`;
+}
+
+const NBA_TEAM_ABBREVS: Record<string, string> = {
+  'atlanta hawks': 'atl', 'boston celtics': 'bos', 'brooklyn nets': 'bkn',
+  'charlotte hornets': 'cha', 'chicago bulls': 'chi', 'cleveland cavaliers': 'cle',
+  'dallas mavericks': 'dal', 'denver nuggets': 'den', 'detroit pistons': 'det',
+  'golden state warriors': 'gs', 'houston rockets': 'hou', 'indiana pacers': 'ind',
+  'la clippers': 'lac', 'los angeles clippers': 'lac',
+  'los angeles lakers': 'lal', 'la lakers': 'lal',
+  'memphis grizzlies': 'mem', 'miami heat': 'mia', 'milwaukee bucks': 'mil',
+  'minnesota timberwolves': 'min', 'new orleans pelicans': 'no',
+  'new york knicks': 'ny', 'oklahoma city thunder': 'okc',
+  'orlando magic': 'orl', 'philadelphia 76ers': 'phi', 'phoenix suns': 'phx',
+  'portland trail blazers': 'por', 'sacramento kings': 'sac',
+  'san antonio spurs': 'sa', 'toronto raptors': 'tor',
+  'utah jazz': 'uta', 'washington wizards': 'wsh',
+};
+
+function getTeamsFromBet(bet: Bet): { awayLogo: string; homeLogo: string; awayAbbr: string; homeAbbr: string; playerTeam: string } | null {
+  // Use stored logo URLs if available (set by enrichment from game data)
+  if (bet.awayTeamLogo && bet.homeTeamLogo) {
+    return { awayLogo: bet.awayTeamLogo, homeLogo: bet.homeTeamLogo, awayAbbr: bet.awayTeam || '', homeAbbr: bet.homeTeam || '', playerTeam: bet.playerTeam || '' };
+  }
+  // Fallback: construct from abbreviations (NBA only)
+  if (bet.awayTeam && bet.homeTeam) {
+    return {
+      awayLogo: getTeamLogo(bet.awayTeam, bet.sport),
+      homeLogo: getTeamLogo(bet.homeTeam, bet.sport),
+      awayAbbr: bet.awayTeam, homeAbbr: bet.homeTeam,
+      playerTeam: bet.playerTeam || '',
+    };
+  }
+  // Last resort: parse gameTitle for old NBA bets
+  if (!bet.gameTitle) return null;
+  const parts = bet.gameTitle.split(/\s+vs\.?\s+/i);
+  if (parts.length !== 2) return null;
+  const awayAbbr = NBA_TEAM_ABBREVS[parts[0].trim().toLowerCase()];
+  const homeAbbr = NBA_TEAM_ABBREVS[parts[1].trim().toLowerCase()];
+  if (!awayAbbr || !homeAbbr) return null;
+  return {
+    awayLogo: getTeamLogo(awayAbbr, bet.sport),
+    homeLogo: getTeamLogo(homeAbbr, bet.sport),
+    awayAbbr, homeAbbr,
+    playerTeam: bet.playerTeam || '',
+  };
 }
 
 const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', assists: 'AST', threes: '3PM' };
@@ -108,93 +171,129 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   const displayStake = showTakerSide ? bet.takerStake : bet.creatorStake;
   const displayOdds = showTakerSide ? takerOdds : creatorOdds;
 
+  const headshot = getPlayerHeadshot(bet.playerId, bet.sport);
+  const teams = getTeamsFromBet(bet);
+
   return (
     <>
       <div
-        className="chalk-card rounded-[4px] overflow-hidden transition-all duration-200 cursor-pointer flex flex-col"
+        className="chalk-card rounded-[6px] overflow-hidden transition-all duration-200 cursor-pointer flex flex-col"
         style={{
           opacity: isSettled || isCancelled ? 0.65 : 1,
-          ...(isParticipant ? { border: '1.5px dashed rgba(245,217,96,0.35)', boxShadow: '0 0 12px rgba(245,217,96,0.06)' } : {}),
+          ...(isParticipant ? { border: '1.5px dashed rgba(245,217,96,0.35)', boxShadow: '0 0 16px rgba(245,217,96,0.06)' } : {}),
         }}
         onClick={() => setShowModal(true)}
       >
-        <div className="px-3 py-2.5 flex flex-col flex-1">
-          {/* Header: status + game */}
+        {/* Player info: headshot left, name + team logos right */}
+        <div className="relative px-2.5 pt-2.5 pb-2" style={{ background: 'linear-gradient(135deg, rgba(232,228,217,0.04), rgba(232,228,217,0.01))' }}>
+          {/* Status + YOUR BET badges */}
           <div className="flex items-center justify-between mb-2">
             <StatusBadge status={bet.status} gameOver={gameOver} isMatched={isMatched} />
             {isParticipant && (
-              <span className="text-[8px] chalk-header tracking-[0.15em]" style={{ color: 'var(--color-yellow)' }}>YOUR BET</span>
+              <span className="text-[7px] chalk-header tracking-[0.15em] px-1.5 py-0.5 rounded-[3px]" style={{ color: 'var(--color-yellow)', background: 'rgba(0,0,0,0.4)' }}>YOUR BET</span>
             )}
           </div>
 
-          {showGame && bet.gameTitle && (
-            <div className="text-[9px] truncate mb-1.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{bet.gameTitle}</div>
-          )}
+          <div className="flex items-center gap-2.5">
+            {/* Headshot */}
+            <div className="flex-shrink-0">
+              {headshot ? (
+                <div className="rounded-full p-[1.5px]" style={{ background: 'linear-gradient(135deg, rgba(232,228,217,0.25), rgba(232,228,217,0.08))' }}>
+                  <img
+                    src={headshot}
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="rounded-full object-cover"
+                    style={{ background: 'rgba(232,228,217,0.06)', width: 56, height: 56 }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+              ) : (
+                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(232,228,217,0.06)', border: '1.5px dashed rgba(232,228,217,0.15)' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--chalk-ghost)' }}>
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+              )}
+            </div>
 
-          {/* Player name */}
-          <div className="text-sm chalk-header truncate mb-1.5" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
+            {/* Name + Team logos */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] chalk-header truncate" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
+              {/* Team logos for game */}
+              {teams ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <img
+                    src={teams.awayLogo}
+                    alt={teams.awayAbbr}
+                    className="flex-shrink-0 object-contain"
+                    style={{ width: teams.playerTeam === teams.awayAbbr ? 22 : 16, height: teams.playerTeam === teams.awayAbbr ? 22 : 16, opacity: teams.playerTeam === teams.awayAbbr ? 1 : 0.5 }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <span className="text-[8px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>vs</span>
+                  <img
+                    src={teams.homeLogo}
+                    alt={teams.homeAbbr}
+                    className="flex-shrink-0 object-contain"
+                    style={{ width: teams.playerTeam === teams.homeAbbr ? 22 : 16, height: teams.playerTeam === teams.homeAbbr ? 22 : 16, opacity: teams.playerTeam === teams.homeAbbr ? 1 : 0.5 }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+              ) : showGame && bet.gameTitle ? (
+                <div className="text-[9px] truncate mt-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{bet.gameTitle}</div>
+              ) : null}
+            </div>
+          </div>
+        </div>
 
-          {/* Prop line: direction + target + stat */}
-          <div className="flex items-center gap-1.5 mb-3">
+        {/* Prop line */}
+        <div className="px-2.5 py-2" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
+          <div className="flex items-center justify-center gap-2">
             <span
-              className="px-1.5 py-px rounded-[3px] text-[10px] chalk-header tracking-wide"
-              style={{ background: `${displayDirColor}15`, color: displayDirColor, border: `1px dashed ${displayDirColor}30` }}
+              className="px-2 py-0.5 rounded-[3px] text-[10px] chalk-header tracking-wide"
+              style={{ background: `${displayDirColor}12`, color: displayDirColor, border: `1px dashed ${displayDirColor}25` }}
             >
               {displayDir.toUpperCase()}
             </span>
-            <span className="text-lg tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
-            <span className="text-[11px] chalk-header tracking-wide" style={{ color: 'var(--chalk-dim)' }}>{statLabel}</span>
+            <span className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
+            <span className="text-[11px] chalk-header" style={{ color: 'var(--chalk-dim)' }}>{statLabel}</span>
           </div>
-
-          {/* Numbers row: Stake / Total Pot / Odds */}
-          <div className="flex items-start justify-between gap-1 mt-auto">
-            <div>
-              <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
-              <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{displayStake}</div>
-              {price !== null && <div className="text-[10px] tabular-nums" style={{ color: 'var(--chalk-ghost)' }}>{formatUsd(displayStake, price)}</div>}
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
-              <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{pool}</div>
-              {price !== null && <div className="text-[10px] tabular-nums" style={{ color: 'var(--chalk-ghost)' }}>{formatUsd(pool, price)}</div>}
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
-              <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{displayOdds}</div>
-            </div>
-          </div>
-
-          {/* Settled result */}
-          {isSettled && bet.actualValue != null && (
-            <div className="mt-2 flex items-center gap-1.5 text-[10px] flex-wrap" style={{ fontFamily: 'var(--font-chalk-body)' }}>
-              <span style={{ color: 'var(--chalk-ghost)' }}>Actual:</span>
-              <span className="tabular-nums chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.actualValue} {statLabel}</span>
-              <span style={{ color: 'var(--chalk-ghost)' }}>&rarr;</span>
-              <span className="chalk-header" style={{ color: bet.result === 'push' ? 'var(--chalk-dim)' : bet.result === 'creator_wins' ? 'var(--color-green)' : 'var(--color-red)' }}>
-                {bet.result === 'push' ? 'Push' : bet.result === 'creator_wins' ? `${bet.creatorName} wins` : `${bet.takerName} wins`}
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-3 py-2 chalk-stroke-top flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {isMatched && !gameOver && (
-              <span className="flex items-center gap-1 text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-                </svg>
-                Settles at final
-              </span>
-            )}
-            {isMatched && gameOver && (
-              <span className="text-[9px] chalk-header tracking-wider" style={{ color: 'var(--color-yellow)' }}>SETTLING...</span>
-            )}
-            {isSettled && (
-              <span className="text-[9px] chalk-header tracking-wider" style={{ color: 'var(--chalk-ghost)' }}>WIPED</span>
-            )}
+        {/* Numbers strip */}
+        <div className="flex items-center justify-between px-2.5 py-2" style={{ background: 'rgba(232,228,217,0.02)', borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
+          <div className="text-center flex-1">
+            <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{displayStake}</div>
+            <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
           </div>
+          <div className="w-px h-6" style={{ background: 'rgba(232,228,217,0.08)' }} />
+          <div className="text-center flex-1">
+            <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{pool}</div>
+            <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
+          </div>
+          <div className="w-px h-6" style={{ background: 'rgba(232,228,217,0.08)' }} />
+          <div className="text-center flex-1">
+            <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{displayOdds}</div>
+            <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
+          </div>
+        </div>
+
+        {/* Settled result */}
+        {isSettled && bet.actualValue != null && (
+          <div className="px-2.5 py-1.5 flex items-center justify-center gap-1.5 text-[10px]" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)', fontFamily: 'var(--font-chalk-body)' }}>
+            <span style={{ color: 'var(--chalk-ghost)' }}>Actual: {bet.actualValue} {statLabel}</span>
+            <span className="chalk-header" style={{ color: bet.result === 'push' ? 'var(--chalk-dim)' : bet.result === 'creator_wins' ? 'var(--color-green)' : 'var(--color-red)' }}>
+              {bet.result === 'push' ? 'Push' : bet.result === 'creator_wins' ? `${bet.creatorName} wins` : `${bet.takerName} wins`}
+            </span>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="px-2.5 py-2 flex items-center justify-between" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
+          <span className="text-[9px] truncate" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+            {bet.creatorName}
+          </span>
           <div className="flex items-center gap-1.5">
             {isOpen && !isCreator && (
               <button
@@ -206,14 +305,14 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
                 disabled={loading}
                 className="chalk-btn chalk-btn-accent px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer disabled:opacity-50"
               >
-                {loading ? '...' : `Take ${counterDir.toUpperCase()} ${bet.takerStake}`}
+                {loading ? '...' : 'Take It'}
               </button>
             )}
             {authenticated && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowChalkCard(true); }}
-                className="chalk-btn px-2 py-1 rounded-[3px] text-[10px] chalk-header cursor-pointer flex items-center gap-1"
-                style={{ background: 'rgba(245,217,96,0.12)', border: '1px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
+                className="chalk-btn px-1.5 py-1 rounded-[3px] cursor-pointer"
+                style={{ background: 'rgba(245,217,96,0.08)', color: 'var(--color-yellow)' }}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />

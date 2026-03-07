@@ -5,9 +5,10 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { LoginButton } from '@/components/auth/LoginButton';
 import { ActivityModal } from '@/components/ActivityModal';
+import { SportSelector } from '@/components/SportSelector';
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Games', match: (p: string) => p === '/' },
+  { href: '/', label: 'Games', match: (p: string) => p === '/', hasSportSelector: true },
   { href: '/bets', label: 'Board', match: (p: string) => p === '/bets' },
   { href: '/leaderboard', label: 'Rankings', match: (p: string) => p === '/leaderboard' },
   { href: '/clips', label: 'Clips', match: (p: string) => p === '/clips' || p.startsWith('/clip/') },
@@ -45,6 +46,17 @@ export function TopNav() {
           <nav className="hidden md:flex items-center gap-0.5">
             {NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
+              if (item.hasSportSelector && active) {
+                return (
+                  <div key={item.href} className="relative px-1 py-1.5">
+                    <SportSelector />
+                    <span
+                      className="absolute bottom-0 left-3 right-3 h-[2px]"
+                      style={{ background: 'var(--color-yellow)', opacity: 0.7 }}
+                    />
+                  </div>
+                );
+              }
               return (
                 <Link
                   key={item.href}

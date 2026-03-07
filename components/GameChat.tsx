@@ -94,13 +94,8 @@ export function GameChat({ gameId }: { gameId: string }) {
     }, 60_000);
   }, [gameId]);
 
-  // Auto-poll ChalkBot every 90s while viewing
-  useEffect(() => {
-    if (!ready) return;
-    const initial = setTimeout(() => { triggerChalkBot(); }, 5000);
-    const interval = setInterval(() => { triggerChalkBot(); }, 90_000);
-    return () => { clearTimeout(initial); clearInterval(interval); };
-  }, [ready, triggerChalkBot]);
+  // ChalkBot only responds when tagged with @chalkbot in chat
+  // (auto-poll removed — bot is triggered in sendMessage)
 
   useEffect(() => {
     if (!ready) return;
@@ -157,6 +152,11 @@ export function GameChat({ gameId }: { gameId: string }) {
         timestamp: serverTimestamp(),
       });
       scrollToBottom();
+
+      // Trigger ChalkBot when tagged
+      if (text.toLowerCase().includes('@chalkbot')) {
+        triggerChalkBot();
+      }
     } catch { /* failed to send */ }
   };
 
@@ -315,7 +315,7 @@ export function GameChat({ gameId }: { gameId: string }) {
   return (
     <>
       {/* Desktop: always visible, matches player height */}
-      <div className="hidden lg:flex lg:flex-col lg:h-full" style={{ minHeight: 200, maxHeight: 280 }}>
+      <div className="hidden lg:flex lg:flex-col lg:h-full" style={{ minHeight: 250, maxHeight: 380 }}>
         {chatPanel}
       </div>
 

@@ -1,33 +1,38 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Game } from '@/lib/types';
+import { Game, ROUND_LABELS, TournamentRound } from '@/lib/types';
 import { GameOdds, KalshiMarket, buildKalshiTicker, buildSpreadEventTicker, matchOdds } from '@/lib/kalshi';
 import { GameCard, GameVolume } from '@/components/GameCard';
 import { getFavorites } from '@/lib/favorites';
 import Link from 'next/link';
 import { TeamLogo } from '@/components/TeamLogo';
+import { useSport } from '@/components/SportSelector';
 
 export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
+  const sport = useSport();
   const [games, setGames] = useState<Game[]>([]);
   const [oddsMap, setOddsMap] = useState<Record<string, GameOdds>>({});
   const [volumeMap, setVolumeMap] = useState<Record<string, GameVolume>>({});
+  const [roundMap, setRoundMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [totalChalk, setTotalChalk] = useState(0);
   const [propCount, setPropCount] = useState(0);
 
   const fetchGames = useCallback(async () => {
     try {
       const [gamesRes, oddsRes] = await Promise.all([
-        fetch('/api/games?sport=nba'),
-        fetch('/api/odds'),
+        fetch(`/api/games?sport=${sport}`),
+        sport === 'nba' ? fetch('/api/odds') : Promise.resolve(new Response(JSON.stringify({}))),
       ]);
       const gamesData = await gamesRes.json();
       const loadedGames: Game[] = gamesData.games ?? [];
       setGames(loadedGames);
+      if (gamesData.roundMap) setRoundMap(gamesData.roundMap);
 
       // Fetch bet volumes
       if (loadedGames.length > 0) {
@@ -42,41 +47,59 @@ export default function HomePage() {
           .catch(() => {});
       }
 
-      const oddsData = await oddsRes.json();
-      const markets: KalshiMarket[] = oddsData.markets ?? [];
-      const spreads: KalshiMarket[] = oddsData.spreads ?? [];
-      if (markets.length > 0) {
-        const mapped: Record<string, GameOdds> = {};
-        for (const game of loadedGames) {
-          const d = new Date(game.date);
-          const ticker = buildKalshiTicker(d, game.awayTeam.abbreviation, game.homeTeam.abbreviation);
-          const spreadTicker = buildSpreadEventTicker(d, game.awayTeam.abbreviation, game.homeTeam.abbreviation);
-          mapped[game.id] = matchOdds(markets, ticker, game.awayTeam.abbreviation, game.homeTeam.abbreviation, spreads, spreadTicker);
+      if (sport === 'nba') {
+        const oddsData = await oddsRes.json();
+        const markets: KalshiMarket[] = oddsData.markets ?? [];
+        const spreads: KalshiMarket[] = oddsData.spreads ?? [];
+        if (markets.length > 0) {
+          const mapped: Record<string, GameOdds> = {};
+          for (const game of loadedGames) {
+            const d = new Date(game.date);
+            const ticker = buildKalshiTicker(d, game.awayTeam.abbreviation, game.homeTeam.abbreviation);
+            const spreadTicker = buildSpreadEventTicker(d, game.awayTeam.abbreviation, game.homeTeam.abbreviation);
+            mapped[game.id] = matchOdds(markets, ticker, game.awayTeam.abbreviation, game.homeTeam.abbreviation, spreads, spreadTicker);
+          }
+          setOddsMap(mapped);
         }
-        setOddsMap(mapped);
+      } else {
+        setOddsMap({});
       }
     } catch {
       // Keep existing games on error
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sport]);
 
   useEffect(() => {
     setLoading(true);
+    setGames([]);
+    setOddsMap({});
+    setRoundMap({});
     fetchGames();
     const interval = setInterval(fetchGames, 30000);
     return () => clearInterval(interval);
   }, [fetchGames]);
 
   const favoriteAbbrs = getFavorites().map((f) => f.abbreviation);
+  const searchFiltered = searchQuery.trim()
+    ? games.filter((g) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          g.homeTeam.displayName.toLowerCase().includes(q) ||
+          g.awayTeam.displayName.toLowerCase().includes(q) ||
+          g.homeTeam.abbreviation.toLowerCase().includes(q) ||
+          g.awayTeam.abbreviation.toLowerCase().includes(q)
+        );
+      })
+    : games;
   const filteredGames = showFavoritesOnly
-    ? games.filter(
+    ? searchFiltered.filter(
         (g) =>
           favoriteAbbrs.includes(g.homeTeam.abbreviation) ||
           favoriteAbbrs.includes(g.awayTeam.abbreviation)
       )
-    : games;
+    : searchFiltered;
 
   const liveGames = filteredGames.filter((g) => g.state === 'in');
   const upcomingGames = filteredGames.filter((g) => g.state === 'pre');
@@ -108,7 +131,7 @@ export default function HomePage() {
           <div>
             <div className="flex items-center gap-2.5">
               <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-header)' }}>
-                NBA
+                {sport === 'ncaam' ? 'NCAA' : 'NBA'}
               </span>
               <span style={{ color: 'var(--dust-medium)' }}>&middot;</span>
               <span className="text-[11px] tracking-wide" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
@@ -149,6 +172,46 @@ export default function HomePage() {
               <TickerStat label="Props" value={propCount} />
               <TickerDivider />
               <TickerStat label="Chalk" value={totalChalk} format />
+            </div>
+          </div>
+        )}
+
+        {/* Search bar */}
+        {!loading && games.length > 0 && (
+          <div className="mt-3 fade-up fade-up-delay-1">
+            <div className="relative">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ color: 'var(--chalk-ghost)' }}
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search teams..."
+                className="w-full rounded-[4px] py-2 pl-9 pr-3 text-sm outline-none"
+                style={{
+                  background: 'rgba(232,228,217,0.04)',
+                  border: '1px dashed rgba(232,228,217,0.1)',
+                  color: 'var(--chalk-white)',
+                  fontFamily: 'var(--font-chalk-body)',
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded cursor-pointer"
+                  style={{ color: 'var(--chalk-ghost)' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -216,44 +279,99 @@ export default function HomePage() {
         {/* Game Sections */}
         {!loading && (
           <div className="space-y-8">
-            {remainingLive.length > 0 && (
-              <GameSection
-                title="Live"
-                games={remainingLive}
-                oddsMap={oddsMap}
-                volumeMap={volumeMap}
-                accent="var(--color-yellow)"
-                icon={<span className="w-1.5 h-1.5 rounded-full live-ring" style={{ background: 'var(--color-yellow)' }} />}
-              />
-            )}
-            {remainingUpcoming.length > 0 && (
-              <GameSection
-                title="Upcoming"
-                games={remainingUpcoming}
-                oddsMap={oddsMap}
-                volumeMap={volumeMap}
-                accent="var(--chalk-dim)"
-                icon={
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
+            {/* Tournament round sections for NCAA */}
+            {sport === 'ncaam' && Object.keys(roundMap).length > 0 ? (
+              (() => {
+                // Group games by tournament round
+                const roundGroups: Record<string, Game[]> = {};
+                const nonTournament: Game[] = [];
+                for (const game of filteredGames) {
+                  const round = roundMap[game.id];
+                  if (round) {
+                    if (!roundGroups[round]) roundGroups[round] = [];
+                    roundGroups[round].push(game);
+                  } else {
+                    nonTournament.push(game);
+                  }
                 }
-              />
-            )}
-            {finalGames.length > 0 && (
-              <GameSection
-                title="Final"
-                games={finalGames}
-                oddsMap={oddsMap}
-                volumeMap={volumeMap}
-                accent="var(--chalk-ghost)"
-                icon={
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                }
-              />
+                const roundOrder = ['round_of_64', 'round_of_32', 'sweet_16', 'elite_eight', 'final_four', 'championship'];
+                return (
+                  <>
+                    {roundOrder.map((round) => {
+                      const rGames = roundGroups[round];
+                      if (!rGames || rGames.length === 0) return null;
+                      return (
+                        <GameSection
+                          key={round}
+                          title={ROUND_LABELS[round as TournamentRound] ?? round}
+                          games={rGames}
+                          oddsMap={oddsMap}
+                          volumeMap={volumeMap}
+                          accent="var(--color-yellow)"
+                          icon={<span className="text-xs">🏆</span>}
+                        />
+                      );
+                    })}
+                    {nonTournament.length > 0 && (
+                      <GameSection
+                        title="Other Games"
+                        games={nonTournament}
+                        oddsMap={oddsMap}
+                        volumeMap={volumeMap}
+                        accent="var(--chalk-ghost)"
+                        icon={
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 6v6l4 2" />
+                          </svg>
+                        }
+                      />
+                    )}
+                  </>
+                );
+              })()
+            ) : (
+              <>
+                {remainingLive.length > 0 && (
+                  <GameSection
+                    title="Live"
+                    games={remainingLive}
+                    oddsMap={oddsMap}
+                    volumeMap={volumeMap}
+                    accent="var(--color-yellow)"
+                    icon={<span className="w-1.5 h-1.5 rounded-full live-ring" style={{ background: 'var(--color-yellow)' }} />}
+                  />
+                )}
+                {remainingUpcoming.length > 0 && (
+                  <GameSection
+                    title="Upcoming"
+                    games={remainingUpcoming}
+                    oddsMap={oddsMap}
+                    volumeMap={volumeMap}
+                    accent="var(--chalk-dim)"
+                    icon={
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                      </svg>
+                    }
+                  />
+                )}
+                {finalGames.length > 0 && (
+                  <GameSection
+                    title="Final"
+                    games={finalGames}
+                    oddsMap={oddsMap}
+                    volumeMap={volumeMap}
+                    accent="var(--chalk-ghost)"
+                    icon={
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    }
+                  />
+                )}
+              </>
             )}
           </div>
         )}

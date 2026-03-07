@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SPORTS } from '@/lib/types';
 
 interface SeasonAverages {
   points: number;
@@ -13,18 +14,23 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id');
+  const sport = req.nextUrl.searchParams.get('sport') ?? 'nba';
   if (!id) {
     return NextResponse.json({ error: 'Missing player id' }, { status: 400 });
   }
 
-  const cached = cache.get(id);
+  const cacheKey = `${sport}:${id}`;
+  const cached = cache.get(cacheKey);
   if (cached && cached.expires > Date.now()) {
     return NextResponse.json({ averages: cached.data });
   }
 
+  const sportConfig = SPORTS.find((s) => s.key === sport);
+  const espnPath = sportConfig?.espnPath ?? 'basketball/nba';
+
   try {
     const res = await fetch(
-      `https://site.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${id}/stats`,
+      `https://site.api.espn.com/apis/common/v3/sports/${espnPath}/athletes/${id}/stats`,
       { next: { revalidate: 3600 } }
     );
     if (!res.ok) {
@@ -56,7 +62,7 @@ export async function GET(req: NextRequest) {
     };
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
-    cache.set(id, { data: averages, expires: Date.now() + CACHE_TTL });
+    cache.set(cacheKey, { data: averages, expires: Date.now() + CACHE_TTL });
     return NextResponse.json({ averages });
   } catch {
     return NextResponse.json({ averages: null });

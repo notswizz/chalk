@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   const gameIds = req.nextUrl.searchParams.get('ids')?.split(',').filter(Boolean);
 
   try {
-    // If specific game IDs requested, fetch them directly (much faster)
-    if (gameIds && gameIds.length > 0 && gameIds.length <= 5) {
+    // If specific game IDs requested, fetch them directly
+    if (gameIds && gameIds.length > 0) {
       const results = await Promise.all(gameIds.map(fetchGameById));
       const games = results.filter((g) => g !== null);
       return NextResponse.json({ games });

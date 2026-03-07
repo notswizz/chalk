@@ -5,17 +5,21 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get('status'); // 'open' | 'matched' | null (all)
+  const type = searchParams.get('type'); // 'tournament' | null
 
-  let q;
+  const constraints = [];
+
   if (status) {
-    q = query(collection(firestore, 'bets'), where('status', '==', status));
+    constraints.push(where('status', '==', status));
   } else {
-    q = query(
-      collection(firestore, 'bets'),
-      where('status', 'in', ['open', 'matched'])
-    );
+    constraints.push(where('status', 'in', ['open', 'matched']));
   }
 
+  if (type === 'tournament') {
+    constraints.push(where('type', '==', 'tournament'));
+  }
+
+  const q = query(collection(firestore, 'bets'), ...constraints);
   const snapshot = await getDocs(q);
   const bets = snapshot.docs
     .map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>))

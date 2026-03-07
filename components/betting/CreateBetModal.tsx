@@ -30,6 +30,8 @@ interface Props {
   gameId: string;
   gameTitle: string;
   teams?: string[];
+  teamIds?: string[];
+  sport?: string;
   onClose: () => void;
   onCreated: () => void;
 }
@@ -48,11 +50,12 @@ function formatAmerican(val: number): string {
   return val > 0 ? `+${val}` : `${val}`;
 }
 
-export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }: Props) {
+export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClose, onCreated }: Props) {
   const { getAccessToken, profile } = useUser();
   const { price } = useChalkPrice();
   const [player, setPlayer] = useState('');
   const [playerId, setPlayerId] = useState('');
+  const [playerTeam, setPlayerTeam] = useState('');
   const [playersByTeam, setPlayersByTeam] = useState<Record<string, PlayerInfo[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
   const playerInputRef = useRef<HTMLInputElement>(null);
@@ -69,20 +72,30 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
   // Fetch rosters for both teams
   useEffect(() => {
     if (!teams || teams.length === 0) return;
-    fetch(`/api/players?teams=${teams.join(',')}`)
+    const sportParam = sport ? `&sport=${sport}` : '';
+    setPlayersByTeam({});
+    setPlayer('');
+    setPlayerId('');
+    setPlayerTeam('');
+    // For NCAA, use numeric team IDs since abbreviations don't work reliably
+    const rosterKeys = sport === 'ncaam' && teamIds?.length ? teamIds : teams;
+    const displayKeys = teams; // Always use abbreviations as display keys
+    fetch(`/api/players?teams=${(rosterKeys || []).join(',')}&displayTeams=${(displayKeys || []).join(',')}${sportParam}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => setPlayersByTeam(d.byTeam ?? {}))
       .catch(() => {});
-  }, [teams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teams?.join(','), teamIds?.join(','), sport]);
 
   // Fetch season averages when player is selected
   useEffect(() => {
     if (!playerId) { setAverages(null); return; }
-    fetch(`/api/players/averages?id=${playerId}`)
+    const sportParam = sport ? `&sport=${sport}` : '';
+    fetch(`/api/players/averages?id=${playerId}${sportParam}`)
       .then((r) => r.json())
       .then((d) => setAverages(d.averages ?? null))
       .catch(() => setAverages(null));
-  }, [playerId]);
+  }, [playerId, sport]);
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -133,7 +146,10 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           gameId, gameTitle, gameDate: new Date().toISOString(),
-          player: player.trim(), stat, target: Number(target), direction, stake: stakeNum, odds: multiplier,
+          player: player.trim(), playerId: playerId || '', playerTeam: playerTeam || '',
+          awayTeam: teams?.[0] || '', homeTeam: teams?.[1] || '',
+          stat, target: Number(target), direction, stake: stakeNum, odds: multiplier,
+          sport: sport || 'nba',
         }),
       });
 
@@ -193,7 +209,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
                   ref={playerInputRef}
                   type="text"
                   value={player}
-                  onChange={(e) => { setPlayer(e.target.value); setPlayerId(''); setShowSuggestions(true); }}
+                  onChange={(e) => { setPlayer(e.target.value); setPlayerId(''); setPlayerTeam(''); setShowSuggestions(true); }}
                   onFocus={() => setShowSuggestions(true)}
                   placeholder={hasPlayers ? 'Search player...' : 'e.g. LeBron James'}
                   className="input-field w-full"
@@ -226,6 +242,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, onClose, onCreated }:
                               e.preventDefault();
                               setPlayer(p.name);
                               setPlayerId(p.id);
+                              setPlayerTeam(team);
                               setShowSuggestions(false);
                             }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--dust-light)'; }}

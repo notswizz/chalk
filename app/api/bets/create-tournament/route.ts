@@ -3,22 +3,38 @@ import { verifyAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { doc, collection, runTransaction } from 'firebase/firestore';
 import { ensureUserDoc } from '@/lib/ensure-user';
+import { calculateOppositeOdds, calculateTakerStake, isValidAmericanOdds } from '@/lib/odds';
+import { ROUND_ORDER, TournamentRound } from '@/lib/types';
 
 export async function POST(req: Request) {
   try {
     const userId = await verifyAuth(req);
     const body = await req.json();
-    const { gameId, gameTitle, gameDate, player, playerId, playerTeam, awayTeam, homeTeam, stat, target, direction, stake, odds, sport } = body;
+    const { teamId, teamName, teamSeed, teamLogo, round, direction, odds, stake } = body;
 
-    if (!gameId || !player || !stat || !target || !direction || !stake || !odds) {
+    if (!teamId || !teamName || !round || !direction || !odds || !stake) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (stake <= 0 || odds <= 0) {
-      return NextResponse.json({ error: 'Invalid stake or odds' }, { status: 400 });
+    if (!isValidAmericanOdds(odds)) {
+      return NextResponse.json({ error: 'Invalid odds' }, { status: 400 });
     }
 
-    const takerStake = Math.round(stake * odds);
+    if (!ROUND_ORDER.includes(round as TournamentRound)) {
+      return NextResponse.json({ error: 'Invalid round' }, { status: 400 });
+    }
+
+    if (direction !== 'WILL' && direction !== 'WILL_NOT') {
+      return NextResponse.json({ error: 'Invalid direction' }, { status: 400 });
+    }
+
+    if (stake <= 0) {
+      return NextResponse.json({ error: 'Invalid stake' }, { status: 400 });
+    }
+
+    const oppositeOdds = calculateOppositeOdds(odds);
+    const takerStake = calculateTakerStake(stake, odds);
+
     const betRef = doc(collection(firestore, 'bets'));
     const userRef = doc(firestore, 'users', userId);
 
@@ -37,35 +53,31 @@ export async function POST(req: Request) {
       });
 
       tx.set(betRef, {
+        type: 'tournament',
         creatorId: userId,
         creatorName: userData.displayName || 'Anonymous',
         takerId: null,
         takerName: null,
-        gameId,
-        gameTitle: gameTitle || '',
-        gameDate: gameDate || '',
-        player,
-        playerId: playerId || '',
-        playerTeam: playerTeam || '',
-        awayTeam: awayTeam || '',
-        homeTeam: homeTeam || '',
-        stat,
-        target: Number(target),
+        teamId,
+        teamName,
+        teamSeed: Number(teamSeed) || 0,
+        teamLogo: teamLogo || '',
+        round,
         direction,
+        odds,
+        oppositeOdds,
+        stake,
         creatorStake: stake,
         takerStake,
-        odds,
-        sport: sport || 'nba',
         status: 'open',
         createdAt: Date.now(),
         matchedAt: null,
-        expiresAt: null,
       });
     });
 
     return NextResponse.json({ id: betRef.id, takerStake });
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Failed to create bet';
+    const message = e instanceof Error ? e.message : 'Failed to create tournament prop';
     const status = message.includes('Unauthorized') || message.includes('token') ? 401 : 400;
     return NextResponse.json({ error: message }, { status });
   }
