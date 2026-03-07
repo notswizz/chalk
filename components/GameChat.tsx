@@ -54,6 +54,8 @@ export function GameChat({ gameId }: { gameId: string }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [botLoading, setBotLoading] = useState(false);
+  const [botCooldown, setBotCooldown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialLoad = useRef(true);
 
@@ -75,6 +77,26 @@ export function GameChat({ gameId }: { gameId: string }) {
         setAuthError(true);
       });
   }, []);
+
+  const triggerChalkBot = useCallback(async () => {
+    if (botLoading || botCooldown) return;
+    setBotLoading(true);
+    try {
+      await fetch(`/api/chalkbot?gameId=${gameId}`);
+    } catch { /* ignore */ }
+    setBotLoading(false);
+    setBotCooldown(true);
+    setTimeout(() => setBotCooldown(false), 60_000);
+  }, [gameId, botLoading, botCooldown]);
+
+  // Auto-poll ChalkBot every 90s while viewing
+  useEffect(() => {
+    if (!ready) return;
+    // Initial trigger after 5s
+    const initial = setTimeout(() => { triggerChalkBot(); }, 5000);
+    const interval = setInterval(() => { triggerChalkBot(); }, 90_000);
+    return () => { clearTimeout(initial); clearInterval(interval); };
+  }, [ready, triggerChalkBot]);
 
   useEffect(() => {
     if (!ready) return;
@@ -161,16 +183,42 @@ export function GameChat({ gameId }: { gameId: string }) {
           )}
         </div>
 
-        {/* Close on mobile only */}
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="lg:hidden w-6 h-6 rounded-[4px] flex items-center justify-center transition-colors"
-          style={{ color: 'var(--chalk-ghost)' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* ChalkBot trigger button */}
+          <button
+            onClick={triggerChalkBot}
+            disabled={botLoading || botCooldown}
+            title={botCooldown ? 'ChalkBot cooling down...' : 'Ask ChalkBot to check in'}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-[3px] text-[10px] font-bold transition-all disabled:opacity-30"
+            style={{
+              background: botLoading ? 'var(--dust-medium)' : 'rgba(93,232,138,0.1)',
+              color: 'var(--color-green)',
+              border: '1px solid rgba(93,232,138,0.2)',
+            }}
+          >
+            {botLoading ? (
+              <div className="w-3 h-3 border border-current rounded-full animate-spin" style={{ borderTopColor: 'transparent' }} />
+            ) : (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 2a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </svg>
+            )}
+            {botCooldown ? '60s' : 'Bot'}
+          </button>
+
+          {/* Close on mobile only */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="lg:hidden w-6 h-6 rounded-[4px] flex items-center justify-center transition-colors"
+            style={{ color: 'var(--chalk-ghost)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
