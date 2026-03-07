@@ -1,5 +1,7 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
+import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 let app: App;
 
@@ -12,12 +14,13 @@ if (getApps().length === 0) {
     app = initializeApp({
       credential: cert({ projectId, clientEmail, privateKey }),
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
     });
   } else {
-    // Fallback: use application default credentials or project ID only
     app = initializeApp({
       projectId,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
     });
   }
 } else {
@@ -25,6 +28,8 @@ if (getApps().length === 0) {
 }
 
 export const adminStorage = getStorage(app);
+export const adminDb = getDatabase(app);
+export const adminFirestore = getFirestore(app);
 
 export async function uploadBufferToStorage(
   path: string,

@@ -10,6 +10,7 @@ interface Message {
   uid: string;
   name: string;
   timestamp: number;
+  isBot?: boolean;
 }
 
 const COLORS = [
@@ -79,7 +80,7 @@ export function GameChat({ gameId }: { gameId: string }) {
     if (!ready) return;
     const chatRef = query(ref(db, `chats/${gameId}`), limitToLast(100));
 
-    const handleNewMessage = (snapshot: { key: string | null; val: () => { text: string; uid: string; name: string; timestamp: number } }) => {
+    const handleNewMessage = (snapshot: { key: string | null; val: () => { text: string; uid: string; name: string; timestamp: number; isBot?: boolean } }) => {
       const data = snapshot.val();
       if (!data) return;
       const msg: Message = {
@@ -88,6 +89,7 @@ export function GameChat({ gameId }: { gameId: string }) {
         uid: data.uid,
         name: data.name,
         timestamp: data.timestamp || Date.now(),
+        isBot: data.isBot || false,
       };
       setMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
@@ -189,7 +191,30 @@ export function GameChat({ gameId }: { gameId: string }) {
         )}
         {messages.map((msg) => {
           const isMe = msg.uid === uid;
-          const color = getColor(msg.uid);
+          const color = msg.isBot ? 'var(--color-green)' : getColor(msg.uid);
+
+          if (msg.isBot) {
+            return (
+              <div
+                key={msg.id}
+                className="px-2.5 py-1.5 rounded-[3px] -mx-1"
+                style={{ background: 'rgba(93,232,138,0.06)', borderLeft: '2px solid rgba(93,232,138,0.3)' }}
+              >
+                <span className="text-[10px] font-bold flex items-center gap-1.5" style={{ color }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 2a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                  ChalkBot
+                </span>
+                <p className="text-[12px] leading-snug break-words mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
+                  {msg.text}
+                </p>
+              </div>
+            );
+          }
+
           return (
             <div key={msg.id}>
               <span className="text-[11px] font-bold" style={{ color }}>
