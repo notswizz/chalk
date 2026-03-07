@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, getFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
@@ -17,9 +17,18 @@ const firebaseConfig = {
 function init() {
   try {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    // Use memory-only cache to avoid "Failed to get document from server" errors
+    // in serverless environments (Vercel). initializeFirestore can only be called
+    // once per app, so fall back to getFirestore if already initialised.
+    let fs;
+    try {
+      fs = initializeFirestore(app, { localCache: memoryLocalCache() });
+    } catch {
+      fs = getFirestore(app);
+    }
     return {
       db: getDatabase(app),
-      firestore: getFirestore(app),
+      firestore: fs,
       auth: getAuth(app),
       storage: getStorage(app),
     };
