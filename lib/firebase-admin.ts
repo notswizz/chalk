@@ -1,7 +1,7 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getStorage, Storage } from 'firebase-admin/storage';
-import { getDatabase, Database } from 'firebase-admin/database';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
+import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 function getApp(): App {
   if (getApps().length > 0) return getApps()[0];
@@ -23,31 +23,28 @@ function getApp(): App {
   return initializeApp({ projectId, storageBucket, databaseURL });
 }
 
-// Lazy getters — avoid crashing at build time when env vars are missing
-let _storage: Storage;
-let _db: Database;
-let _firestore: Firestore;
+function init() {
+  try {
+    const app = getApp();
+    return {
+      adminStorage: getStorage(app),
+      adminDb: getDatabase(app),
+      adminFirestore: getFirestore(app),
+    };
+  } catch {
+    return {
+      adminStorage: null as ReturnType<typeof getStorage> | null,
+      adminDb: null as ReturnType<typeof getDatabase> | null,
+      adminFirestore: null as ReturnType<typeof getFirestore> | null,
+    };
+  }
+}
 
-export const adminStorage = new Proxy({} as Storage, {
-  get(_, prop) {
-    if (!_storage) _storage = getStorage(getApp());
-    return Reflect.get(_storage, prop);
-  },
-});
+const { adminStorage: _storage, adminDb: _db, adminFirestore: _firestore } = init();
 
-export const adminDb = new Proxy({} as Database, {
-  get(_, prop) {
-    if (!_db) _db = getDatabase(getApp());
-    return Reflect.get(_db, prop);
-  },
-});
-
-export const adminFirestore = new Proxy({} as Firestore, {
-  get(_, prop) {
-    if (!_firestore) _firestore = getFirestore(getApp());
-    return Reflect.get(_firestore, prop);
-  },
-});
+export const adminStorage = _storage!;
+export const adminDb = _db!;
+export const adminFirestore = _firestore!;
 
 export async function uploadBufferToStorage(
   path: string,
