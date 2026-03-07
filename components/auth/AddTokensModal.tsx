@@ -24,7 +24,7 @@ import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 import {
   CHALK_MINT_ADDRESS,
   CHALK_DECIMALS,
-  OWNER_WALLET_ADDRESS,
+  getOwnerWalletAddress,
   coinsToRaw,
 } from '@/lib/solana';
 
@@ -102,7 +102,7 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
         mint: CHALK_MINT_ADDRESS,
       });
       const [ownerAta] = await findAssociatedTokenPda({
-        owner: OWNER_WALLET_ADDRESS,
+        owner: getOwnerWalletAddress(),
         tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
         mint: CHALK_MINT_ADDRESS,
       });
@@ -111,7 +111,7 @@ export function AddTokensModal({ onClose, onAdded }: { onClose: () => void; onAd
       const createAtaIx = getCreateAssociatedTokenIdempotentInstruction({
         payer: noopSigner,
         ata: ownerAta,
-        owner: OWNER_WALLET_ADDRESS,
+        owner: getOwnerWalletAddress(),
         mint: CHALK_MINT_ADDRESS,
       });
 

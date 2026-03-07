@@ -5,7 +5,7 @@ import { doc, runTransaction, getDoc } from 'firebase/firestore';
 import { ensureUserDoc } from '@/lib/ensure-user';
 import {
   CHALK_MINT,
-  OWNER_WALLET,
+  getOwnerWallet,
   CHALK_DECIMALS,
   SOLANA_RPC_URL,
 } from '@/lib/solana';
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     for (const postEntry of post) {
       if (
         postEntry.mint === CHALK_MINT &&
-        postEntry.owner === OWNER_WALLET
+        postEntry.owner === getOwnerWallet()
       ) {
         const postAmount = BigInt(postEntry.uiTokenAmount.amount);
         const preEntry = pre.find(

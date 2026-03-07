@@ -6,7 +6,7 @@ import { ensureUserDoc } from '@/lib/ensure-user';
 import {
   CHALK_MINT_ADDRESS,
   CHALK_DECIMALS,
-  OWNER_WALLET_ADDRESS,
+  getOwnerWalletAddress,
   coinsToRaw,
   SOLANA_RPC_URL,
 } from '@/lib/solana';
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
 
       // Derive ATAs
       const [ownerAta] = await findAssociatedTokenPda({
-        owner: OWNER_WALLET_ADDRESS,
+        owner: getOwnerWalletAddress(),
         tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
         mint: CHALK_MINT_ADDRESS,
       });
