@@ -5,6 +5,8 @@ import { Game, SPORTS, Sport } from '@/lib/types';
 import { GameCard } from '@/components/GameCard';
 import { getFavorites, removeFavorite, FavoriteTeam } from '@/lib/favorites';
 
+export const dynamic = 'force-dynamic';
+
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteTeam[]>([]);
   const [games, setGames] = useState<Game[]>([]);

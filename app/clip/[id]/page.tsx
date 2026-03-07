@@ -17,6 +17,8 @@ interface Clip {
 
 import { use } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 export default function ClipPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [clip, setClip] = useState<Clip | null>(null);

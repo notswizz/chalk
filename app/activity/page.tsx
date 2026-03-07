@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { type Bet, BetDetailModal, toAmericanOdds } from '@/components/betting/BetCard';
 
+export const dynamic = 'force-dynamic';
+
 type Outcome = 'won' | 'lost' | 'push' | 'live' | 'open' | 'cancelled';
 
 const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', assists: 'AST', threes: '3PM' };

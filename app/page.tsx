@@ -8,6 +8,8 @@ import { getFavorites } from '@/lib/favorites';
 import Link from 'next/link';
 import { TeamLogo } from '@/components/TeamLogo';
 
+export const dynamic = 'force-dynamic';
+
 export default function HomePage() {
   const [games, setGames] = useState<Game[]>([]);
   const [oddsMap, setOddsMap] = useState<Record<string, GameOdds>>({});

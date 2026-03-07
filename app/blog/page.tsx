@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Blog — Free NBA Streams & Player Prop Betting Guides',
   description: 'Learn how to watch NBA games free online, find the best player props tonight, and discover the top StreamEast and Buffstreams alternatives for live sports streaming.',

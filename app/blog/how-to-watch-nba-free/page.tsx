@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'How to Watch NBA Games Free Online in 2026 — Complete Guide',
   description: 'Watch free live NBA streams on Chalk — no cable, no signup, no ads. The best free NBA streaming site with live scores, player stats, and player prop betting. Better than StreamEast, Buffstreams, and Crackstreams.',

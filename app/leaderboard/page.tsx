@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 
+export const dynamic = 'force-dynamic';
+
 interface LeaderboardEntry {
   userId: string;
   displayName: string;

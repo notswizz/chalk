@@ -2,6 +2,8 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { fetchAllGames } from '@/lib/espn';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Best NBA Player Props Tonight — Daily Picks & Betting Analysis',
   description: 'Find the best NBA player prop bets for tonight\'s games. Over/under picks for points, rebounds, assists, and 3-pointers. Free player prop betting on Chalk — the best StreamEast and Buffstreams alternative.',

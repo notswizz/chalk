@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Best StreamEast & Buffstreams Alternatives in 2026',
   description: 'Looking for a StreamEast or Buffstreams alternative? Chalk offers free live NBA streams with player prop betting, live scores, and no ads. The #1 free sports streaming site in 2026.',

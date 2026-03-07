@@ -3,6 +3,8 @@ import { firestore } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import CardClient from './CardClient';
 
+export const dynamic = 'force-dynamic';
+
 const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', assists: 'AST', threes: '3PM' };
 
 interface ChalkCard {

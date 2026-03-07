@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 const MINT = '4khj2EMrS97s6LyWdSiga2yne74TfpbodFjd69mXpump';
 
 const STEPS = [

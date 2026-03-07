@@ -4,6 +4,8 @@ import { useEffect, useState, use } from 'react';
 import { Game, Sport, SPORTS } from '@/lib/types';
 import { GameCard } from '@/components/GameCard';
 
+export const dynamic = 'force-dynamic';
+
 export default function SportPage({ params }: { params: Promise<{ sport: string }> }) {
   const { sport } = use(params);
   const [games, setGames] = useState<Game[]>([]);

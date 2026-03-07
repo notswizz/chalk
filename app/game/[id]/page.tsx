@@ -14,6 +14,8 @@ import { GameVolume } from '@/components/GameCard';
 import { GameClips } from '@/components/GameClips';
 import { useUser } from '@/hooks/useUser';
 
+export const dynamic = 'force-dynamic';
+
 export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { authenticated, userId, getAccessToken, login } = useUser();

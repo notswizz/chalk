@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useUser } from '@/hooks/useUser';
 
+export const dynamic = 'force-dynamic';
+
 interface Clip {
   id: string;
   clipTitle?: string;

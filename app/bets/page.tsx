@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { BetCard, Bet } from '@/components/betting/BetCard';
 import { useUser } from '@/hooks/useUser';
 
+export const dynamic = 'force-dynamic';
+
 const TABS = [
   { key: 'open' as const, label: 'On the Board', color: 'var(--color-green)', bg: 'rgba(93,232,138,0.1)' },
   { key: 'live' as const, label: 'Live Chalk', color: 'var(--color-yellow)', bg: 'rgba(245,217,96,0.1)' },
