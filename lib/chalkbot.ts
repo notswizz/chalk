@@ -1,6 +1,10 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let _groq: Groq | null = null;
+function groq() {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
+  return _groq;
+}
 
 export interface GameState {
   gameId: string;
@@ -72,7 +76,7 @@ export async function generateComment(
     ? `There are ${activeBetCount} active props on the board for this game. Reference them naturally if relevant.`
     : '';
 
-  const response = await groq.chat.completions.create({
+  const response = await groq().chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [
       {
