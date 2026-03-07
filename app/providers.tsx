@@ -8,9 +8,12 @@ import { ChalkPriceProvider } from '@/hooks/useChalkPrice';
 const solanaConnectors = toSolanaWalletConnectors();
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  if (!appId) return <>{children}</>;
+
   return (
     <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
+      appId={appId}
       config={{
         appearance: {
           theme: 'dark',
