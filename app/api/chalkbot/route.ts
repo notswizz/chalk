@@ -4,6 +4,42 @@ import { detectInterestingEvent, generateComment, GameState } from '@/lib/chalkb
 
 const COOLDOWN_MS = 60_000; // 1 min between comments per game
 
+// POST /api/chalkbot — test with fake game data
+export async function POST(req: Request) {
+  if (!process.env.GROQ_API_KEY) {
+    return NextResponse.json({ error: 'GROQ_API_KEY not set' }, { status: 500 });
+  }
+
+  const body = await req.json();
+  const event = body.event || 'lead_change';
+  const game: GameState = {
+    gameId: body.gameId || 'test',
+    homeTeam: body.homeTeam || 'BOS',
+    awayTeam: body.awayTeam || 'LAL',
+    homeScore: body.homeScore ?? 97,
+    awayScore: body.awayScore ?? 98,
+    quarter: body.quarter ?? 4,
+    clock: body.clock || '2:31',
+  };
+
+  const comment = await generateComment(event, game, body.activeBetCount ?? 0);
+
+  // Optionally post to chat if gameId is a real game
+  if (body.postToChat && comment) {
+    const chatRef = adminDb.ref(`chats/${game.gameId}`);
+    await chatRef.push({
+      text: comment,
+      uid: 'chalkbot',
+      name: 'ChalkBot',
+      isBot: true,
+      eventType: event,
+      timestamp: Date.now(),
+    });
+  }
+
+  return NextResponse.json({ event, game, comment });
+}
+
 export async function GET(req: Request) {
   // Auth check for cron
   const authHeader = req.headers.get('authorization');
