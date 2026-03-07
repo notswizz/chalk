@@ -27,7 +27,7 @@ export async function findStreams(
   const deduped: StreamLink[] = [];
   for (const stream of all) {
     // Extract the raw URL from the proxy wrapper for dedup comparison
-    const rawUrl = decodeURIComponent(stream.url.replace('/api/proxy?url=', ''));
+    const rawUrl = decodeURIComponent(stream.url.replace(/^.*\?url=/, ''));
     if (seen.has(rawUrl)) continue;
     seen.add(rawUrl);
     deduped.push(stream);

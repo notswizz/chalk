@@ -10,8 +10,10 @@ export function normalize(name: string): string {
     .trim();
 }
 
+const PROXY_ORIGIN = process.env.NEXT_PUBLIC_PROXY_URL || 'https://proxy.chalkstreams.live';
+
 export function proxyUrl(rawUrl: string): string {
-  return `/api/proxy?url=${encodeURIComponent(rawUrl)}`;
+  return `${PROXY_ORIGIN}/?url=${encodeURIComponent(rawUrl)}`;
 }
 
 export function matchesTeams(text: string, team1: string, team2: string): boolean {
