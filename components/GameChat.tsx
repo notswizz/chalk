@@ -58,6 +58,7 @@ export function GameChat({ gameId }: { gameId: string }) {
   const [botCooldown, setBotCooldown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialLoad = useRef(true);
+  const botBusy = useRef(false);
 
   useEffect(() => {
     ensureAuth()
@@ -79,20 +80,23 @@ export function GameChat({ gameId }: { gameId: string }) {
   }, []);
 
   const triggerChalkBot = useCallback(async () => {
-    if (botLoading || botCooldown) return;
+    if (botBusy.current) return;
+    botBusy.current = true;
     setBotLoading(true);
     try {
       await fetch(`/api/chalkbot?gameId=${gameId}`);
     } catch { /* ignore */ }
     setBotLoading(false);
     setBotCooldown(true);
-    setTimeout(() => setBotCooldown(false), 60_000);
-  }, [gameId, botLoading, botCooldown]);
+    setTimeout(() => {
+      setBotCooldown(false);
+      botBusy.current = false;
+    }, 60_000);
+  }, [gameId]);
 
   // Auto-poll ChalkBot every 90s while viewing
   useEffect(() => {
     if (!ready) return;
-    // Initial trigger after 5s
     const initial = setTimeout(() => { triggerChalkBot(); }, 5000);
     const interval = setInterval(() => { triggerChalkBot(); }, 90_000);
     return () => { clearTimeout(initial); clearInterval(interval); };
