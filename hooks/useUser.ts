@@ -154,8 +154,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   return React.createElement(UserContext.Provider, { value }, children);
 }
 
+const defaultValue: UserContextValue = {
+  user: null,
+  wallet: null,
+  login: (() => {}) as UserContextValue['login'],
+  logout: (() => Promise.resolve()) as UserContextValue['logout'],
+  authenticated: false,
+  ready: false,
+  userId: null,
+  profile: null,
+  loadingProfile: true,
+  needsUsername: false,
+  setUsername: async () => {},
+  refreshProfile: async () => {},
+  getAccessToken: (async () => null) as UserContextValue['getAccessToken'],
+  savedWalletAddress: null,
+  walletMismatch: false,
+};
+
 export function useUser(): UserContextValue {
   const ctx = useContext(UserContext);
-  if (!ctx) throw new Error('useUser must be used within UserProvider');
-  return ctx;
+  return ctx ?? defaultValue;
 }
