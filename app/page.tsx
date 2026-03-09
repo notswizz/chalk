@@ -1,5 +1,5 @@
 'use client';
-
+// Trigger deploy
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Game, ROUND_LABELS, TournamentRound } from '@/lib/types';
 import { GameOdds, KalshiMarket, buildKalshiTicker, buildSpreadEventTicker, matchOdds } from '@/lib/kalshi';
@@ -7,7 +7,7 @@ import { GameCard, GameVolume } from '@/components/GameCard';
 import { getFavorites } from '@/lib/favorites';
 import Link from 'next/link';
 import { TeamLogo } from '@/components/TeamLogo';
-import { useSport } from '@/components/SportSelector';
+import { useSport, setSport } from '@/components/SportSelector';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,18 +126,45 @@ export default function HomePage() {
     <div className="home-layout max-w-3xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="home-header pt-6 pb-4">
+        {/* Sport Toggle */}
+        <div className="flex items-center justify-center mb-4 fade-up">
+          <div
+            className="flex items-center gap-1 p-1 rounded-[6px]"
+            style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-medium)' }}
+          >
+            <button
+              onClick={() => setSport('nba')}
+              className="px-5 py-2 rounded-[5px] text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer"
+              style={{
+                fontFamily: 'var(--font-chalk-header)',
+                background: sport === 'nba' ? 'rgba(245,217,96,0.15)' : 'transparent',
+                color: sport === 'nba' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                border: sport === 'nba' ? '1px solid rgba(245,217,96,0.25)' : '1px solid transparent',
+              }}
+            >
+              NBA
+            </button>
+            <button
+              onClick={() => setSport('ncaam')}
+              className="px-5 py-2 rounded-[5px] text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer"
+              style={{
+                fontFamily: 'var(--font-chalk-header)',
+                background: sport === 'ncaam' ? 'rgba(245,217,96,0.15)' : 'transparent',
+                color: sport === 'ncaam' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                border: sport === 'ncaam' ? '1px solid rgba(245,217,96,0.25)' : '1px solid transparent',
+              }}
+            >
+              NCAA
+            </button>
+          </div>
+        </div>
+
         {/* Date + Controls */}
         <div className="flex items-end justify-between mb-5 fade-up">
           <div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-header)' }}>
-                {sport === 'ncaam' ? 'NCAA' : 'NBA'}
-              </span>
-              <span style={{ color: 'var(--dust-medium)' }}>&middot;</span>
-              <span className="text-[11px] tracking-wide" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-              </span>
-            </div>
+            <span className="text-[11px] tracking-wide" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {liveCount > 0 && (
