@@ -59,7 +59,9 @@ function parseGame(event: any, sport: Sport): Game {
 export async function fetchGames(sport: Sport): Promise<Game[]> {
   const dateParam = getTodayET();
   const endpoint = getEndpoint(sport);
-  const res = await fetch(`${endpoint}?dates=${dateParam}&limit=100`, { next: { revalidate: 30 } });
+  // groups=50 includes all D1 conferences for college basketball
+  const groupsParam = sport === 'ncaam' ? '&groups=50' : '';
+  const res = await fetch(`${endpoint}?dates=${dateParam}&limit=300${groupsParam}`, { next: { revalidate: 30 } });
   if (!res.ok) return [];
   const data = await res.json();
   const events = data.events ?? [];

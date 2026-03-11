@@ -7,6 +7,7 @@ const BASE_URL = 'https://buffstreams.plus';
 
 const SPORT_PATHS: Record<string, string> = {
   nba: '/nbastreams2',
+  ncaam: '/ncaastreams2',
   nfl: '/nflstreams2',
   mlb: '/mlbstreams2',
   nhl: '/nhlstreams2',
@@ -15,6 +16,7 @@ const SPORT_PATHS: Record<string, string> = {
 
 const SPORT_SLUG: Record<string, string> = {
   nba: 'nba',
+  ncaam: 'ncaa',
   nfl: 'nfl',
   mlb: 'mlb',
   nhl: 'nhl',

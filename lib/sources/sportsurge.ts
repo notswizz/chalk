@@ -7,6 +7,7 @@ const BASE_URL = 'https://sportsurge.ws';
 
 const SPORT_PATHS: Record<string, string> = {
   nba: '/nba/livestreams2',
+  ncaam: '/ncaa/livestreams2',
   nfl: '/nfl/livestreams2',
   mlb: '/mlb/livestreams2',
   nhl: '/nhl/livestreams2',
