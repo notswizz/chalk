@@ -164,7 +164,7 @@ export function StreamPlayer({ stream, gameId, gameTitle }: StreamPlayerProps) {
         const url = await uploadClip(trimmedBlob, clipId);
 
         const token = await getAccessToken();
-        await fetch('/api/clips', {
+        const res = await fetch('/api/clips', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -178,6 +178,10 @@ export function StreamPlayer({ stream, gameId, gameTitle }: StreamPlayerProps) {
             url,
           }),
         });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(`Clip metadata save failed: ${res.status} ${err.error || ''}`);
+        }
 
         setLastClipUrl(`/clip/${clipId}`);
         setClipStatus('done');

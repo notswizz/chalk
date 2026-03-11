@@ -815,3 +815,142 @@ html:has(.pinned-header-layout) main {
   line-height: 1;
   letter-spacing: 0.04em;
 }
+
+/* ─── Home with clip rails (3-column layout) ─── */
+.home-with-clips {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-with-clips > .home-layout {
+  flex: 1;
+  min-width: 0;
+  max-width: 48rem; /* matches max-w-3xl */
+}
+
+.clip-rail {
+  position: sticky;
+  top: 80px;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 190px;
+  flex-shrink: 0;
+  padding: 16px 10px;
+  margin-top: 120px;
+  height: fit-content;
+  background:
+    linear-gradient(135deg, rgba(45, 55, 45, 0.6) 0%, rgba(35, 45, 35, 0.8) 50%, rgba(40, 50, 40, 0.6) 100%);
+  border: 2px solid rgba(120, 100, 70, 0.4);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 30px rgba(0, 0, 0, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.03),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+  /* Chalk dust texture */
+  background-image:
+    radial-gradient(ellipse at 20% 10%, rgba(232, 228, 217, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(232, 228, 217, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(232, 228, 217, 0.02) 0%, transparent 70%),
+    linear-gradient(135deg, rgba(45, 55, 45, 0.6) 0%, rgba(35, 45, 35, 0.8) 50%, rgba(40, 50, 40, 0.6) 100%);
+}
+
+.clip-rail-left {
+  margin-right: 12px;
+}
+
+.clip-rail-right {
+  margin-left: 12px;
+}
+
+.clip-rail-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(232, 228, 217, 0.03);
+  border: 1px solid rgba(232, 228, 217, 0.06);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.clip-rail-card:hover {
+  border-color: rgba(245, 217, 96, 0.2);
+  background: rgba(232, 228, 217, 0.05);
+  transform: translateY(-2px);
+}
+
+.clip-rail-video-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 14;
+  overflow: hidden;
+  background: #111;
+}
+
+.clip-rail-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clip-rail-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+  transition: opacity 0.2s;
+}
+
+.clip-rail-card:hover .clip-rail-play {
+  opacity: 0;
+}
+
+.clip-rail-info {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.clip-rail-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--chalk-dim);
+  font-family: var(--font-chalk-header);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clip-rail-meta {
+  font-size: 9px;
+  color: var(--chalk-ghost);
+  font-family: var(--font-chalk-body);
+}
+
+.clip-rail-header {
+  display: block;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  font-family: var(--font-chalk-header);
+  color: var(--chalk-ghost);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px dashed rgba(232, 228, 217, 0.1);
+}
+
+/* Hide clip rails on smaller screens */
+@media (max-width: 1100px) {
+  .clip-rail {
+    display: none;
+  }
+}

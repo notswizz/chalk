@@ -11,6 +11,15 @@ import { useSport, setSport } from '@/components/SportSelector';
 
 export const dynamic = 'force-dynamic';
 
+interface Clip {
+  id: string;
+  clipTitle?: string;
+  userName?: string;
+  gameTitle?: string;
+  url: string;
+  createdAt: number;
+}
+
 export default function HomePage() {
   const sport = useSport();
   const [games, setGames] = useState<Game[]>([]);
@@ -22,6 +31,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [totalChalk, setTotalChalk] = useState(0);
   const [propCount, setPropCount] = useState(0);
+  const [clips, setClips] = useState<Clip[]>([]);
 
   const fetchGames = useCallback(async () => {
     try {
@@ -81,6 +91,13 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [fetchGames]);
 
+  useEffect(() => {
+    fetch('/api/clips')
+      .then((r) => r.json())
+      .then((d) => setClips((d.clips ?? []).slice(0, 4)))
+      .catch(() => {});
+  }, []);
+
   const favoriteAbbrs = getFavorites().map((f) => f.abbreviation);
   const searchFiltered = searchQuery.trim()
     ? games.filter((g) => {
@@ -122,7 +139,21 @@ export default function HomePage() {
     ? upcomingGames.filter((g) => g.id !== featuredGame.id)
     : upcomingGames;
 
+  const leftClips = clips.slice(0, 2);
+  const rightClips = clips.slice(2, 4);
+
   return (
+    <div className="home-with-clips">
+      {/* Left clip rail */}
+      {clips.length > 0 && (
+        <div className="clip-rail clip-rail-left">
+
+          {leftClips.map((clip) => (
+            <ClipCard key={clip.id} clip={clip} />
+          ))}
+        </div>
+      )}
+
     <div className="home-layout max-w-3xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="home-header pt-6 pb-4">
@@ -287,15 +318,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Board heading */}
-        {!loading && filteredGames.length > 0 && (
-          <div className="mb-4 fade-up fade-up-delay-2">
-            <span className="text-lg chalk-header chalk-text" style={{ color: 'var(--chalk-dim)' }}>
-              {"Tonight's Board"}
-            </span>
-          </div>
-        )}
-
         {/* Featured Hero Game */}
         {!loading && featuredGame && (
           <div className="mb-6 fade-up fade-up-delay-3">
@@ -411,6 +433,54 @@ export default function HomePage() {
         )}
       </div>
     </div>
+
+      {/* Right clip rail */}
+      {clips.length > 2 && (
+        <div className="clip-rail clip-rail-right">
+
+          {rightClips.map((clip) => (
+            <ClipCard key={clip.id} clip={clip} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Clip Card for side rails ─── */
+function ClipCard({ clip }: { clip: Clip }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  return (
+    <Link
+      href="/clips"
+      className="clip-rail-card group"
+      onMouseEnter={() => { videoRef.current?.play(); setIsPlaying(true); }}
+      onMouseLeave={() => { videoRef.current?.pause(); setIsPlaying(false); }}
+    >
+      <div className="clip-rail-video-wrap">
+        <video
+          ref={videoRef}
+          src={clip.url}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+        />
+        {!isPlaying && (
+          <div className="clip-rail-play">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </div>
+        )}
+      </div>
+      <div className="clip-rail-info">
+        <span className="clip-rail-title">{clip.clipTitle || 'Untitled Clip'}</span>
+        <span className="clip-rail-meta">{clip.userName || 'User'}</span>
+      </div>
+    </Link>
   );
 }
 
