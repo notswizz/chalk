@@ -5,6 +5,7 @@ import { doc, collection, runTransaction } from 'firebase/firestore';
 import { ensureUserDoc } from '@/lib/ensure-user';
 import { calculateOppositeOdds, calculateTakerStake, isValidAmericanOdds } from '@/lib/odds';
 import { ROUND_ORDER, TournamentRound } from '@/lib/types';
+import { trackChallenge } from '@/lib/track-challenge';
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +75,9 @@ export async function POST(req: Request) {
         matchedAt: null,
       });
     });
+
+    trackChallenge(userId, 'bet_placed', { stake, sport: 'ncaam' }).catch(() => {});
+    trackChallenge(userId, 'tournament_prop').catch(() => {});
 
     return NextResponse.json({ id: betRef.id, takerStake });
   } catch (e: unknown) {

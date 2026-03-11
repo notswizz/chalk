@@ -4,6 +4,7 @@ import './globals.css';
 import { TopNav } from '@/components/TopNav';
 import { Analytics } from '@vercel/analytics/next';
 import { Providers } from './providers';
+import { ToastProvider } from '@/components/ToastProvider';
 
 const chalkHeader = Permanent_Marker({
   weight: '400',
@@ -210,8 +211,10 @@ export default function RootLayout({
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#2d4230]/20 rounded-full blur-[120px]" />
         </div>
         <Providers>
-          <TopNav />
-          <main className="relative min-h-screen">{children}</main>
+          <ToastProvider>
+            <TopNav />
+            <main className="relative min-h-screen">{children}</main>
+          </ToastProvider>
         </Providers>
         <Analytics />
       </body>

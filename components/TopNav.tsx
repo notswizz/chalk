@@ -5,13 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { LoginButton } from '@/components/auth/LoginButton';
 import { ActivityModal } from '@/components/ActivityModal';
-import { SportSelector } from '@/components/SportSelector';
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Games', match: (p: string) => p === '/', hasSportSelector: true },
+  { href: '/', label: 'Games', match: (p: string) => p === '/' },
   { href: '/bets', label: 'Board', match: (p: string) => p === '/bets' },
   { href: '/leaderboard', label: 'Rankings', match: (p: string) => p === '/leaderboard' },
   { href: '/clips', label: 'Clips', match: (p: string) => p === '/clips' || p.startsWith('/clip/') },
+  { href: '/challenges', label: 'Season 0', match: (p: string) => p === '/challenges' },
   { href: '/buy', label: '$CHALK', match: (p: string) => p === '/buy' },
 ];
 
@@ -46,32 +46,30 @@ export function TopNav() {
           <nav className="hidden md:flex items-center gap-0.5">
             {NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
-              if (item.hasSportSelector && active) {
-                return (
-                  <div key={item.href} className="relative px-1 py-1.5">
-                    <SportSelector />
-                    <span
-                      className="absolute bottom-0 left-3 right-3 h-[2px]"
-                      style={{ background: 'var(--color-yellow)', opacity: 0.7 }}
-                    />
-                  </div>
-                );
-              }
+              const isSeason = item.label === 'Season 0';
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className="relative px-3 py-1.5 text-sm transition-all duration-200"
                   style={{
-                    fontFamily: 'var(--font-chalk-body)',
-                    color: active ? 'var(--chalk-white)' : 'var(--chalk-ghost)',
+                    fontFamily: isSeason ? 'var(--font-chalk-header)' : 'var(--font-chalk-body)',
+                    color: isSeason ? 'transparent' : active ? 'var(--chalk-white)' : 'var(--chalk-ghost)',
+                    ...(isSeason ? {
+                      background: 'linear-gradient(90deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)',
+                      WebkitBackgroundClip: 'text',
+                      backgroundClip: 'text',
+                      fontWeight: 800,
+                      letterSpacing: '0.03em',
+                      textShadow: 'none',
+                    } : {}),
                   }}
                 >
                   {item.label}
                   {active && (
                     <span
                       className="absolute bottom-0 left-3 right-3 h-[2px]"
-                      style={{ background: 'var(--color-yellow)', opacity: 0.7 }}
+                      style={{ background: isSeason ? 'linear-gradient(90deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)' : 'var(--color-yellow)', opacity: 0.7 }}
                     />
                   )}
                 </Link>
@@ -147,6 +145,7 @@ export function TopNav() {
         >
           {NAV_ITEMS.map((item) => {
             const active = item.match(pathname);
+            const isSeason = item.label === 'Season 0';
             return (
               <Link
                 key={item.href}
@@ -154,12 +153,27 @@ export function TopNav() {
                 onClick={() => setMobileOpen(false)}
                 className="px-3 py-2.5 rounded-[4px] text-base transition-all duration-150"
                 style={{
-                  fontFamily: 'var(--font-chalk-body)',
-                  color: active ? 'var(--chalk-white)' : 'var(--chalk-ghost)',
+                  fontFamily: isSeason ? 'var(--font-chalk-header)' : 'var(--font-chalk-body)',
+                  color: isSeason ? 'transparent' : active ? 'var(--chalk-white)' : 'var(--chalk-ghost)',
                   background: active ? 'rgba(245,217,96,0.06)' : 'transparent',
+                  ...(isSeason ? {
+                    background: active ? 'rgba(245,217,96,0.06)' : 'transparent',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                  } : {}),
                 }}
               >
-                {item.label}
+                {isSeason ? (
+                  <span style={{
+                    background: 'linear-gradient(90deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                    fontWeight: 800,
+                  }}>
+                    {item.label}
+                  </span>
+                ) : item.label}
               </Link>
             );
           })}

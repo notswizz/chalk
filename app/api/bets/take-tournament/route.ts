@@ -3,6 +3,7 @@ import { verifyAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { ensureUserDoc } from '@/lib/ensure-user';
+import { trackChallenge } from '@/lib/track-challenge';
 
 export async function POST(req: Request) {
   try {
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
 
     await ensureUserDoc(userId);
 
+    let betStake = 0;
+
     await runTransaction(firestore, async (tx) => {
       const betSnap = await tx.get(betRef);
       if (!betSnap.exists()) throw new Error('Prop not found');
@@ -26,6 +29,8 @@ export async function POST(req: Request) {
       if (bet.type !== 'tournament') throw new Error('Not a tournament prop');
       if (bet.status !== 'open') throw new Error('Prop is no longer open');
       if (bet.creatorId === userId) throw new Error('Cannot take your own prop');
+
+      betStake = bet.takerStake;
 
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists()) throw new Error('User not found');
@@ -45,6 +50,8 @@ export async function POST(req: Request) {
         matchedAt: Date.now(),
       });
     });
+
+    trackChallenge(userId, 'bet_placed', { stake: betStake, sport: 'ncaam' }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {

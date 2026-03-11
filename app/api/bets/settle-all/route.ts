@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { firestore } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, runTransaction } from 'firebase/firestore';
 import { fetchPlayerBoxScore, findPlayerStat } from '@/lib/espn';
+import { trackChallenge } from '@/lib/track-challenge';
 
 /**
  * Settle ALL unsettled bets across all games.
@@ -100,6 +101,7 @@ export async function GET(req: Request) {
           const betRef = doc(firestore, 'bets', betDoc.id);
           try {
             let didSettle = false;
+            let settleResult: { winnerId: string; loserId: string; profit: number } | null = null;
             await runTransaction(firestore, async (tx) => {
               const betSnap = await tx.get(betRef);
               if (!betSnap.exists()) return;
@@ -160,11 +162,14 @@ export async function GET(req: Request) {
                 }
               } else {
                 const winnerId = creatorWins ? bet.creatorId : bet.takerId;
+                const loserId = creatorWins ? bet.takerId : bet.creatorId;
+                const winnerStake = creatorWins ? bet.creatorStake : bet.takerStake;
                 const winnerRef = doc(firestore, 'users', winnerId);
                 const winnerSnap = await tx.get(winnerRef);
                 if (winnerSnap.exists()) {
                   tx.update(winnerRef, { coins: (winnerSnap.data().coins ?? 0) + totalPool });
                 }
+                settleResult = { winnerId, loserId, profit: totalPool - winnerStake };
               }
 
               tx.update(betRef, {
@@ -177,7 +182,14 @@ export async function GET(req: Request) {
               });
             });
 
-            if (didSettle) settled++;
+            if (didSettle) {
+              settled++;
+              if (settleResult) {
+                const { winnerId, loserId, profit } = settleResult;
+                trackChallenge(winnerId, 'bet_won', { profit }).catch(() => {});
+                trackChallenge(loserId, 'bet_lost').catch(() => {});
+              }
+            }
             else noStat++;
           } catch { /* continue */ }
         }

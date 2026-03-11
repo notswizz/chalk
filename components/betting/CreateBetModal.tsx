@@ -346,11 +346,10 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
                   value={stake}
                   onChange={(e) => setStake(e.target.value)}
                   placeholder="50"
-                  min="1"
                   className="input-field"
                 />
               </Field>
-              <Field label="Odds" hint="e.g. -110, +150">
+              <Field label="Odds" hint="American">
                 <input
                   type="number"
                   value={oddsInput}

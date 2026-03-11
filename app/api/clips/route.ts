@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy, doc, setDoc } from 'firebase/firestore';
+import { trackChallenge } from '@/lib/track-challenge';
 
 export async function GET(req: NextRequest) {
   try {
@@ -55,6 +56,8 @@ export async function POST(req: Request) {
     };
 
     await setDoc(doc(collection(firestore, 'clips'), id), clip);
+
+    trackChallenge(userId, 'clip_created').catch(() => {});
 
     return NextResponse.json({ clip });
   } catch (e: unknown) {

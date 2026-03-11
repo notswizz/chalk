@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { collection, query, getDocs, orderBy, doc, setDoc } from 'firebase/firestore';
+import { trackChallenge } from '@/lib/track-challenge';
 
 export async function GET() {
   try {
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
     };
 
     await setDoc(doc(collection(firestore, 'chalk-cards'), id), card);
+
+    trackChallenge(userId, 'card_shared').catch(() => {});
+    trackChallenge(userId, 'chalk_card').catch(() => {});
 
     return NextResponse.json({ card });
   } catch (e: unknown) {
