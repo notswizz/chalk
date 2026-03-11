@@ -1,16 +1,2 @@
 {
-  "crons": [
-    {
-      "path": "/api/bets/settle-all",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/chalkbot",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/tournament-settle",
-      "schedule": "*/5 * * * *"
-    }
-  ]
 }
