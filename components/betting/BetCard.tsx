@@ -478,6 +478,18 @@ interface ChatMessage {
   createdAt: number;
 }
 
+interface CashoutProposal {
+  id: string;
+  proposerId: string;
+  proposerName: string;
+  proposerTake: number;
+  otherTake: number;
+  status: 'pending' | 'accepted' | 'denied' | 'countered' | 'expired';
+  createdAt: number;
+}
+
+type ModalTab = 'detail' | 'chat' | 'cashout';
+
 export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price, userId, getAccessToken }: {
   bet: Bet; statLabel: string; takerOdds: string; creatorOdds: string; pool: number;
   isCreator: boolean; isOpen: boolean; loading: boolean;
@@ -485,9 +497,10 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   userId?: string | null; getAccessToken?: () => Promise<string | null>;
 }) {
   const isParticipant = bet.takerId && (userId === bet.creatorId || userId === bet.takerId);
+  const isMatched = bet.status === 'matched';
 
   const [showShareCard, setShowShareCard] = useState(false);
-  const [showChat, setShowChat] = useState(!!isParticipant);
+  const [tab, setTab] = useState<ModalTab>(isParticipant ? 'chat' : 'detail');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -495,6 +508,13 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
 
+  // Cashout state
+  const [proposals, setProposals] = useState<CashoutProposal[]>([]);
+  const [cashoutAmount, setCashoutAmount] = useState('');
+  const [cashoutLoading, setCashoutLoading] = useState(false);
+  const [cashoutAction, setCashoutAction] = useState(false);
+
+  // === Chat functions ===
   const fetchMessages = useCallback(async () => {
     if (!getAccessToken || !isParticipant) return;
     setChatLoading(true);
@@ -512,20 +532,18 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   }, [bet.id, getAccessToken, isParticipant]);
 
   useEffect(() => {
-    if (showChat && isParticipant) fetchMessages();
-  }, [showChat, isParticipant, fetchMessages]);
+    if (tab === 'chat' && isParticipant) fetchMessages();
+  }, [tab, isParticipant, fetchMessages]);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Poll for new messages every 5s while chat is open
   useEffect(() => {
-    if (!showChat || !isParticipant) return;
+    if (tab !== 'chat' || !isParticipant) return;
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
-  }, [showChat, isParticipant, fetchMessages]);
+  }, [tab, isParticipant, fetchMessages]);
 
   async function sendMessage() {
     if (!chatText.trim() || !getAccessToken || sending) return;
@@ -545,6 +563,59 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
     finally { setSending(false); }
   }
 
+  // === Cashout functions ===
+  const fetchProposals = useCallback(async () => {
+    if (!getAccessToken || !isParticipant) return;
+    setCashoutLoading(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(`/api/bets/cashout?betId=${bet.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProposals(data.proposals ?? []);
+      }
+    } catch { /* silent */ }
+    finally { setCashoutLoading(false); }
+  }, [bet.id, getAccessToken, isParticipant]);
+
+  useEffect(() => {
+    if (tab === 'cashout' && isParticipant) fetchProposals();
+  }, [tab, isParticipant, fetchProposals]);
+
+  // Poll cashout proposals every 5s
+  useEffect(() => {
+    if (tab !== 'cashout' || !isParticipant) return;
+    const interval = setInterval(fetchProposals, 5000);
+    return () => clearInterval(interval);
+  }, [tab, isParticipant, fetchProposals]);
+
+  async function cashoutAction_fn(action: string, proposalId?: string, proposerTake?: number) {
+    if (!getAccessToken) return;
+    setCashoutAction(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/bets/cashout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ betId: bet.id, action, proposalId, proposerTake }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed');
+      }
+      setCashoutAmount('');
+      fetchProposals();
+    } catch { alert('Failed'); }
+    finally { setCashoutAction(false); }
+  }
+
+  const pendingProposal = proposals.find((p) => p.status === 'pending');
+  const pendingIsFromMe = pendingProposal?.proposerId === userId;
+  const myTakeIfAccepted = pendingProposal ? (pendingIsFromMe ? pendingProposal.proposerTake : pendingProposal.otherTake) : 0;
+  const theirTakeIfAccepted = pendingProposal ? (pendingIsFromMe ? pendingProposal.otherTake : pendingProposal.proposerTake) : 0;
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center px-4"
@@ -560,29 +631,46 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px dashed var(--dust-light)' }}>
           <div className="flex items-center gap-1 p-0.5 rounded-[4px]" style={{ background: 'var(--dust-light)' }}>
             <button
-              onClick={() => setShowChat(false)}
+              onClick={() => setTab('detail')}
               className="px-2.5 py-1 rounded-[3px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all"
               style={{
-                background: !showChat ? 'rgba(245,217,96,0.12)' : 'transparent',
-                color: !showChat ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                background: tab === 'detail' ? 'rgba(245,217,96,0.12)' : 'transparent',
+                color: tab === 'detail' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
               }}
             >
               Detail
             </button>
             {isParticipant && (
-              <button
-                onClick={() => setShowChat(true)}
-                className="px-2.5 py-1 rounded-[3px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all flex items-center gap-1.5"
-                style={{
-                  background: showChat ? 'rgba(93,184,232,0.12)' : 'transparent',
-                  color: showChat ? 'var(--color-blue, #5db8e8)' : 'var(--chalk-ghost)',
-                }}
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                </svg>
-                Chat
-              </button>
+              <>
+                <button
+                  onClick={() => setTab('chat')}
+                  className="px-2.5 py-1 rounded-[3px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all flex items-center gap-1.5"
+                  style={{
+                    background: tab === 'chat' ? 'rgba(93,184,232,0.12)' : 'transparent',
+                    color: tab === 'chat' ? 'var(--color-blue, #5db8e8)' : 'var(--chalk-ghost)',
+                  }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                  Chat
+                </button>
+                {isMatched && (
+                  <button
+                    onClick={() => setTab('cashout')}
+                    className="px-2.5 py-1 rounded-[3px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all flex items-center gap-1.5"
+                    style={{
+                      background: tab === 'cashout' ? 'rgba(93,232,138,0.12)' : 'transparent',
+                      color: tab === 'cashout' ? 'var(--color-green)' : 'var(--chalk-ghost)',
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                    Cash Out
+                  </button>
+                )}
+              </>
             )}
           </div>
           <button onClick={onClose} className="p-1 rounded-[4px] cursor-pointer" style={{ color: 'var(--chalk-ghost)' }}>
@@ -592,42 +680,28 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
           </button>
         </div>
 
-        {/* Content: Detail or Chat */}
-        {!showChat ? (
+        {/* ===== DETAIL TAB ===== */}
+        {tab === 'detail' && (
           <div className="p-4 space-y-4 overflow-y-auto">
-            {/* Player + prop */}
             <div>
               <div className="text-lg chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
               <div className="flex items-center gap-2 mt-1">
-                <span
-                  className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
-                  style={{ background: 'rgba(93,232,138,0.15)', color: 'var(--color-green)', border: '1px dashed rgba(93,232,138,0.3)' }}
-                >
-                  O
-                </span>
+                <span className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide" style={{ background: 'rgba(93,232,138,0.15)', color: 'var(--color-green)', border: '1px dashed rgba(93,232,138,0.3)' }}>O</span>
                 <span style={{ color: 'var(--chalk-ghost)', fontSize: '8px' }}>/</span>
-                <span
-                  className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
-                  style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)', border: '1px dashed rgba(232,93,93,0.3)' }}
-                >
-                  U
-                </span>
+                <span className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide" style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)', border: '1px dashed rgba(232,93,93,0.3)' }}>U</span>
                 <span className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
                 <span className="text-sm" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
               </div>
             </div>
 
-            {/* Pot */}
             <div className="text-center py-2.5 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
               <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Total Pot</div>
               <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{pool}</div>
               {price !== null && <div className="text-[10px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(pool, price)}</div>}
             </div>
 
-            {/* Both sides breakdown */}
             <BetSidesBreakdown bet={bet} pool={pool} price={price} creatorOdds={creatorOdds} takerOdds={takerOdds} isCreator={isCreator} />
 
-            {/* Meta */}
             <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
               <span>By {bet.creatorName}</span>
               {bet.takerName && <><span style={{ opacity: 0.3 }}>|</span><span>Taken by {bet.takerName}</span></>}
@@ -635,7 +709,6 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
               <span className="tabular-nums">{new Date(bet.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2">
               <button
                 onClick={() => setShowShareCard(true)}
@@ -643,28 +716,22 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
                 style={{ background: 'rgba(245,217,96,0.1)', border: '1.5px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                  <polyline points="16 6 12 2 8 6" />
-                  <line x1="12" y1="2" x2="12" y2="15" />
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
                 Share
               </button>
               {isOpen && isCreator && (
-                <button
-                  onClick={onCancel}
-                  disabled={loading}
-                  className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50 transition-all"
-                  style={{ background: 'rgba(232,93,93,0.1)', border: '1.5px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}
-                >
+                <button onClick={onCancel} disabled={loading} className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50 transition-all" style={{ background: 'rgba(232,93,93,0.1)', border: '1.5px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}>
                   {loading ? '...' : 'Erase this prop'}
                 </button>
               )}
             </div>
           </div>
-        ) : (
-          /* Full chat view */
+        )}
+
+        {/* ===== CHAT TAB ===== */}
+        {tab === 'chat' && (
           <div className="flex flex-col" style={{ minHeight: 350 }}>
-            {/* Compact prop summary bar */}
             <div className="flex items-center gap-2 px-4 py-2" style={{ background: 'rgba(232,228,217,0.03)', borderBottom: '1px dashed rgba(232,228,217,0.06)' }}>
               <span className="text-[11px] chalk-header truncate" style={{ color: 'var(--chalk-white)' }}>{bet.player}</span>
               <span className="text-[9px] chalk-header" style={{ color: dirColor }}>{bet.direction.toUpperCase()}</span>
@@ -672,7 +739,6 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
               <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
             </div>
 
-            {/* Messages area */}
             <div className="flex-1 p-3 space-y-2.5 overflow-y-auto" style={{ maxHeight: 320, scrollbarWidth: 'thin', scrollbarColor: 'var(--dust-medium) transparent' }}>
               {chatLoading && messages.length === 0 ? (
                 <div className="text-center py-8 text-[10px]" style={{ color: 'var(--chalk-ghost)' }}>Loading...</div>
@@ -689,23 +755,9 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
                   const isMe = msg.senderId === userId;
                   return (
                     <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                      <span className="text-[8px] chalk-header tracking-wider mb-0.5" style={{ color: isMe ? 'var(--color-yellow)' : 'var(--color-blue, #5db8e8)' }}>
-                        {msg.senderName}
-                      </span>
-                      <div
-                        className="px-2.5 py-1.5 rounded-[4px] text-[11px] max-w-[85%]"
-                        style={{
-                          background: isMe ? 'rgba(245,217,96,0.1)' : 'rgba(93,184,232,0.08)',
-                          color: 'var(--chalk-white)',
-                          fontFamily: 'var(--font-chalk-body)',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {msg.text}
-                      </div>
-                      <span className="text-[7px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-ghost)' }}>
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                      </span>
+                      <span className="text-[8px] chalk-header tracking-wider mb-0.5" style={{ color: isMe ? 'var(--color-yellow)' : 'var(--color-blue, #5db8e8)' }}>{msg.senderName}</span>
+                      <div className="px-2.5 py-1.5 rounded-[4px] text-[11px] max-w-[85%]" style={{ background: isMe ? 'rgba(245,217,96,0.1)' : 'rgba(93,184,232,0.08)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)', wordBreak: 'break-word' }}>{msg.text}</div>
+                      <span className="text-[7px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-ghost)' }}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                     </div>
                   );
                 })
@@ -713,31 +765,169 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input */}
             <div className="flex gap-1.5 p-3" style={{ borderTop: '1px dashed rgba(232,228,217,0.08)' }}>
-              <input
-                type="text"
-                value={chatText}
-                onChange={(e) => setChatText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder="Talk your talk..."
-                maxLength={500}
-                className="flex-1 px-2.5 py-2 rounded-[4px] text-[11px] outline-none"
-                style={{
-                  background: 'rgba(232,228,217,0.06)',
-                  border: '1px dashed rgba(232,228,217,0.1)',
-                  color: 'var(--chalk-white)',
-                  fontFamily: 'var(--font-chalk-body)',
-                }}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={sending || !chatText.trim()}
-                className="px-3 py-2 rounded-[4px] chalk-header text-[10px] tracking-wide cursor-pointer disabled:opacity-30 transition-all"
-                style={{ background: 'rgba(93,184,232,0.15)', color: 'var(--color-blue, #5db8e8)' }}
-              >
-                {sending ? '...' : 'Send'}
-              </button>
+              <input type="text" value={chatText} onChange={(e) => setChatText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Talk your talk..." maxLength={500} className="flex-1 px-2.5 py-2 rounded-[4px] text-[11px] outline-none" style={{ background: 'rgba(232,228,217,0.06)', border: '1px dashed rgba(232,228,217,0.1)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }} />
+              <button onClick={sendMessage} disabled={sending || !chatText.trim()} className="px-3 py-2 rounded-[4px] chalk-header text-[10px] tracking-wide cursor-pointer disabled:opacity-30 transition-all" style={{ background: 'rgba(93,184,232,0.15)', color: 'var(--color-blue, #5db8e8)' }}>{sending ? '...' : 'Send'}</button>
+            </div>
+          </div>
+        )}
+
+        {/* ===== CASH OUT TAB ===== */}
+        {tab === 'cashout' && (
+          <div className="flex flex-col" style={{ minHeight: 350 }}>
+            {/* Compact prop summary bar */}
+            <div className="flex items-center gap-2 px-4 py-2" style={{ background: 'rgba(232,228,217,0.03)', borderBottom: '1px dashed rgba(232,228,217,0.06)' }}>
+              <span className="text-[11px] chalk-header truncate" style={{ color: 'var(--chalk-white)' }}>{bet.player}</span>
+              <span className="text-[9px] chalk-header" style={{ color: dirColor }}>{bet.direction.toUpperCase()}</span>
+              <span className="text-[11px] tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
+              <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+              <span className="ml-auto text-[9px] tabular-nums chalk-header" style={{ color: 'var(--color-yellow)' }}>Pot: {pool}</span>
+            </div>
+
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+              {cashoutLoading && proposals.length === 0 ? (
+                <div className="text-center py-8 text-[10px]" style={{ color: 'var(--chalk-ghost)' }}>Loading...</div>
+              ) : (
+                <>
+                  {/* Active proposal */}
+                  {pendingProposal ? (
+                    <div className="rounded-[4px] p-3.5 space-y-3" style={{ background: 'rgba(93,232,138,0.04)', border: '1px dashed rgba(93,232,138,0.2)' }}>
+                      <div className="text-[9px] uppercase tracking-wider chalk-header" style={{ color: 'var(--color-green)' }}>
+                        {pendingIsFromMe ? 'Your offer (waiting...)' : `${pendingProposal.proposerName} offers`}
+                      </div>
+
+                      {/* Visual split */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 text-center py-2 rounded-[4px]" style={{ background: 'rgba(245,217,96,0.06)', border: '1px dashed rgba(245,217,96,0.12)' }}>
+                          <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                            {pendingIsFromMe ? 'You get' : pendingProposal.proposerName}
+                          </div>
+                          <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
+                            {pendingIsFromMe ? pendingProposal.proposerTake : pendingProposal.proposerTake}
+                          </div>
+                        </div>
+                        <div className="text-[10px]" style={{ color: 'var(--chalk-ghost)' }}>/</div>
+                        <div className="flex-1 text-center py-2 rounded-[4px]" style={{ background: 'rgba(93,184,232,0.06)', border: '1px dashed rgba(93,184,232,0.12)' }}>
+                          <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                            {pendingIsFromMe ? 'They get' : 'You get'}
+                          </div>
+                          <div className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-blue, #5db8e8)' }}>
+                            {pendingIsFromMe ? pendingProposal.otherTake : pendingProposal.otherTake}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions for the receiver */}
+                      {!pendingIsFromMe ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => cashoutAction_fn('accept', pendingProposal.id)}
+                            disabled={cashoutAction}
+                            className="flex-1 py-2 rounded-[4px] chalk-header text-[10px] tracking-wide cursor-pointer disabled:opacity-50 transition-all"
+                            style={{ background: 'rgba(93,232,138,0.15)', border: '1px dashed rgba(93,232,138,0.3)', color: 'var(--color-green)' }}
+                          >
+                            {cashoutAction ? '...' : 'Accept'}
+                          </button>
+                          <button
+                            onClick={() => cashoutAction_fn('deny', pendingProposal.id)}
+                            disabled={cashoutAction}
+                            className="flex-1 py-2 rounded-[4px] chalk-header text-[10px] tracking-wide cursor-pointer disabled:opacity-50 transition-all"
+                            style={{ background: 'rgba(232,93,93,0.1)', border: '1px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}
+                          >
+                            Deny
+                          </button>
+                          <button
+                            onClick={() => {
+                              const counter = prompt(`Counter: how much do YOU want? (pot is ${pool})`);
+                              if (counter && Number(counter) > 0 && Number(counter) <= pool) {
+                                cashoutAction_fn('counter', pendingProposal.id, Number(counter));
+                              }
+                            }}
+                            disabled={cashoutAction}
+                            className="flex-1 py-2 rounded-[4px] chalk-header text-[10px] tracking-wide cursor-pointer disabled:opacity-50 transition-all"
+                            style={{ background: 'rgba(245,217,96,0.1)', border: '1px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
+                          >
+                            Counter
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-center" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                          Waiting for {bet.takerId === userId ? bet.creatorName : bet.takerName} to respond...
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* No active proposal — show propose form */
+                    <div className="space-y-3">
+                      <div className="text-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-2" style={{ color: 'var(--chalk-ghost)' }}>
+                          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                        <div className="text-[11px] chalk-header" style={{ color: 'var(--chalk-white)' }}>Propose a Cash Out</div>
+                        <div className="text-[9px] mt-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)', opacity: 0.6 }}>
+                          Split the pot early — the other side has to agree
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-[9px] uppercase tracking-wider chalk-header" style={{ color: 'var(--chalk-ghost)' }}>I want to walk away with</div>
+                        <input
+                          type="number"
+                          value={cashoutAmount}
+                          onChange={(e) => setCashoutAmount(e.target.value)}
+                          placeholder={`0 — ${pool}`}
+                          min={0}
+                          max={pool}
+                          className="w-full px-3 py-2.5 rounded-[4px] text-sm outline-none tabular-nums"
+                          style={{ background: 'rgba(232,228,217,0.06)', border: '1px dashed rgba(232,228,217,0.1)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                        />
+                        {Number(cashoutAmount) > 0 && Number(cashoutAmount) <= pool && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.03)', border: '1px dashed rgba(232,228,217,0.06)' }}>
+                            <div className="flex-1">
+                              <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)' }}>You</div>
+                              <div className="text-sm tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{Number(cashoutAmount)}</div>
+                            </div>
+                            <div className="text-[10px]" style={{ color: 'var(--chalk-ghost)' }}>/</div>
+                            <div className="flex-1 text-right">
+                              <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)' }}>Them</div>
+                              <div className="text-sm tabular-nums chalk-score" style={{ color: 'var(--color-blue, #5db8e8)' }}>{pool - Number(cashoutAmount)}</div>
+                            </div>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            const amt = Number(cashoutAmount);
+                            if (amt > 0 && amt <= pool) cashoutAction_fn('propose', undefined, amt);
+                          }}
+                          disabled={cashoutAction || !cashoutAmount || Number(cashoutAmount) <= 0 || Number(cashoutAmount) > pool}
+                          className="w-full py-2.5 rounded-[4px] chalk-header text-[11px] tracking-wide cursor-pointer disabled:opacity-30 transition-all"
+                          style={{ background: 'rgba(93,232,138,0.12)', border: '1px dashed rgba(93,232,138,0.25)', color: 'var(--color-green)' }}
+                        >
+                          {cashoutAction ? '...' : 'Send Offer'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* History of past proposals */}
+                  {proposals.filter((p) => p.status !== 'pending').length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-[8px] uppercase tracking-wider chalk-header" style={{ color: 'var(--chalk-ghost)' }}>History</div>
+                      {proposals.filter((p) => p.status !== 'pending').map((p) => (
+                        <div key={p.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] text-[10px]" style={{ background: 'rgba(232,228,217,0.03)', fontFamily: 'var(--font-chalk-body)' }}>
+                          <span style={{ color: 'var(--chalk-ghost)' }}>{p.proposerName}</span>
+                          <span className="tabular-nums" style={{ color: 'var(--chalk-white)' }}>{p.proposerTake}/{p.otherTake}</span>
+                          <span className="ml-auto chalk-header text-[8px] tracking-wider" style={{
+                            color: p.status === 'accepted' ? 'var(--color-green)' : p.status === 'denied' ? 'var(--color-red)' : 'var(--color-yellow)',
+                          }}>
+                            {p.status.toUpperCase()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
