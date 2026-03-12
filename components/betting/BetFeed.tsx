@@ -121,12 +121,13 @@ export function BetFeed({ gameId, gameTitle, gameOver, gameLive, teams, teamIds,
           <button
             onClick={(e) => { e.stopPropagation(); fetchLiveStats(); }}
             disabled={statsLoading}
-            className="p-1 rounded-[4px] cursor-pointer transition-all"
-            style={{ color: 'var(--color-blue, #5db8e8)' }}
+            className="p-1 rounded-[4px] cursor-pointer transition-all active:scale-125"
+            style={{ color: statsLoading ? 'var(--color-yellow)' : 'var(--color-blue, #5db8e8)' }}
             title="Refresh live stats"
           >
             <svg
               width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ transition: 'transform 0.3s ease', transform: statsLoading ? 'rotate(360deg)' : 'none' }}
               className={statsLoading ? 'animate-spin' : ''}
             >
               <path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />

@@ -104,9 +104,28 @@ export function BetCard({ bet, onUpdate, showGame, gameOver, liveStats }: { bet:
   const [showModal, setShowModal] = useState(false);
   const [showChalkCard, setShowChalkCard] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [hasChat, setHasChat] = useState(false);
 
   const currentStat = liveStats?.[bet.stat];
   const isTracking = currentStat != null && (bet.status === 'matched' || bet.status === 'open');
+
+  // Check if bet has chat messages (for notification dot)
+  useEffect(() => {
+    if (!bet.takerId || !authenticated) return;
+    const checkChat = async () => {
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(`/api/bets/chat?betId=${bet.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages?.length > 0) setHasChat(true);
+        }
+      } catch { /* silent */ }
+    };
+    checkChat();
+  }, [bet.id, bet.takerId, authenticated, getAccessToken]);
 
   const isCreator = userId === bet.creatorId;
   const isTaker = userId === bet.takerId;
@@ -177,13 +196,26 @@ export function BetCard({ bet, onUpdate, showGame, gameOver, liveStats }: { bet:
   const headshot = getPlayerHeadshot(bet.playerId, bet.sport);
   const teams = getTeamsFromBet(bet);
 
+  // Determine live border color: green if hitting, red if losing
+  const getLiveBorderStyle = (): React.CSSProperties => {
+    if (!isTracking || !isParticipant) {
+      if (isParticipant) return { border: '1.5px dashed rgba(245,217,96,0.35)', boxShadow: '0 0 16px rgba(245,217,96,0.06)' };
+      return {};
+    }
+    // From the viewer's perspective
+    const viewerDir = isCreator ? bet.direction : (bet.direction === 'over' ? 'under' : 'over');
+    const isHitting = viewerDir === 'over' ? currentStat! >= bet.target : currentStat! < bet.target;
+    if (isHitting) return { border: '1.5px solid rgba(93,232,138,0.5)', boxShadow: '0 0 16px rgba(93,232,138,0.12)' };
+    return { border: '1.5px solid rgba(232,93,93,0.5)', boxShadow: '0 0 16px rgba(232,93,93,0.12)' };
+  };
+
   return (
     <>
       <div
         className="chalk-card rounded-[6px] overflow-hidden transition-all duration-200 cursor-pointer flex flex-col"
         style={{
           opacity: isSettled || isCancelled ? 0.65 : 1,
-          ...(isParticipant ? { border: '1.5px dashed rgba(245,217,96,0.35)', boxShadow: '0 0 16px rgba(245,217,96,0.06)' } : {}),
+          ...getLiveBorderStyle(),
         }}
         onClick={() => setShowModal(true)}
       >
@@ -191,7 +223,16 @@ export function BetCard({ bet, onUpdate, showGame, gameOver, liveStats }: { bet:
         <div className="relative px-2.5 pt-2.5 pb-2" style={{ background: 'linear-gradient(135deg, rgba(232,228,217,0.04), rgba(232,228,217,0.01))' }}>
           {/* Status + YOUR BET badges */}
           <div className="flex items-center justify-between mb-2">
-            <StatusBadge status={bet.status} gameOver={gameOver} isMatched={isMatched} />
+            <div className="flex items-center gap-1.5">
+              <StatusBadge status={bet.status} gameOver={gameOver} isMatched={isMatched} />
+              {hasChat && (
+                <span className="flex items-center gap-0.5 text-[7px] chalk-header tracking-wider" style={{ color: 'var(--color-blue, #5db8e8)' }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                </span>
+              )}
+            </div>
             {isParticipant && (
               <span className="text-[7px] chalk-header tracking-[0.15em] px-1.5 py-0.5 rounded-[3px]" style={{ color: 'var(--color-yellow)', background: 'rgba(0,0,0,0.4)' }}>YOUR BET</span>
             )}
@@ -443,16 +484,16 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   onCancel: () => void; onClose: () => void; price: number | null;
   userId?: string | null; getAccessToken?: () => Promise<string | null>;
 }) {
+  const isParticipant = bet.takerId && (userId === bet.creatorId || userId === bet.takerId);
+
   const [showShareCard, setShowShareCard] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const [showChat, setShowChat] = useState(!!isParticipant);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
-
-  const isParticipant = bet.takerId && (userId === bet.creatorId || userId === bet.takerId);
 
   const fetchMessages = useCallback(async () => {
     if (!getAccessToken || !isParticipant) return;

@@ -66,6 +66,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
   const [direction, setDirection] = useState<'over' | 'under'>('over');
   const [stake, setStake] = useState('');
   const [oddsInput, setOddsInput] = useState('-110');
+  const [oddsMode, setOddsMode] = useState<'american' | 'percent'>('american');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -123,8 +124,18 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
 
   const stakeNum = Number(stake) || 0;
   const oddsNum = Number(oddsInput) || 0;
-  const isValidOdds = oddsNum !== 0 && (oddsNum >= 100 || oddsNum <= -100);
-  const multiplier = isValidOdds ? americanToMultiplier(oddsNum) : 1;
+
+  // Compute validity and multiplier based on mode
+  const isValidOdds = oddsMode === 'american'
+    ? oddsNum !== 0 && (oddsNum >= 100 || oddsNum <= -100)
+    : oddsNum > 0 && oddsNum < 100;
+  const multiplier = !isValidOdds ? 1
+    : oddsMode === 'american' ? americanToMultiplier(oddsNum)
+    : (100 - oddsNum) / oddsNum; // percent = implied win probability → multiplier
+  const americanDisplay = oddsMode === 'american' ? oddsNum
+    : multiplier >= 1 ? Math.round(multiplier * 100) * -1 : Math.round(100 / multiplier);
+  const percentDisplay = oddsMode === 'percent' ? oddsNum
+    : isValidOdds ? Math.round(100 / (1 + multiplier)) : 0;
   const takerStake = Math.round(stakeNum * multiplier);
   const payout = stakeNum + takerStake;
 
@@ -135,7 +146,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
     if (!player.trim()) { setError('Enter a player name'); return; }
     if (!target || Number(target) <= 0) { setError('Enter a valid target'); return; }
     if (stakeNum <= 0) { setError('Enter a valid stake'); return; }
-    if (!isValidOdds) { setError('Odds must be +100 or higher, or -100 or lower'); return; }
+    if (!isValidOdds) { setError(oddsMode === 'american' ? 'Odds must be +100 or higher, or -100 or lower' : 'Win % must be between 1 and 99'); return; }
     if (profile && stakeNum > profile.coins) { setError('Insufficient chalk'); return; }
 
     setSubmitting(true);
@@ -349,14 +360,46 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
                   className="input-field"
                 />
               </Field>
-              <Field label="Odds" hint="American">
-                <input
-                  type="number"
-                  value={oddsInput}
-                  onChange={(e) => setOddsInput(e.target.value)}
-                  placeholder="-110"
-                  className="input-field"
-                />
+              <Field label="Odds">
+                <div className="flex items-center gap-0 rounded-[4px] overflow-hidden" style={{ border: '1px dashed var(--dust-medium)', background: 'var(--dust-light)' }}>
+                  {/* Mode toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (oddsMode === 'american') {
+                        // Convert current american to percent
+                        const pct = isValidOdds ? Math.round(100 / (1 + multiplier)) : 50;
+                        setOddsMode('percent');
+                        setOddsInput(String(pct));
+                      } else {
+                        // Convert current percent to american
+                        const am = isValidOdds
+                          ? multiplier >= 1 ? Math.round(multiplier * 100) * -1 : Math.round(100 / multiplier)
+                          : -110;
+                        setOddsMode('american');
+                        setOddsInput(String(am));
+                      }
+                    }}
+                    className="flex-shrink-0 px-2 py-2 text-[9px] chalk-header tracking-wider cursor-pointer transition-all"
+                    style={{ color: 'var(--color-yellow)', background: 'rgba(245,217,96,0.06)' }}
+                    title={`Switch to ${oddsMode === 'american' ? 'percentage' : 'American'}`}
+                  >
+                    {oddsMode === 'american' ? 'US' : '%'}
+                  </button>
+                  <input
+                    type="number"
+                    value={oddsInput}
+                    onChange={(e) => setOddsInput(e.target.value)}
+                    placeholder={oddsMode === 'american' ? '-110' : '50'}
+                    className="flex-1 min-w-0 px-2 py-2 bg-transparent text-sm outline-none"
+                    style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)', border: 'none' }}
+                  />
+                </div>
+                {isValidOdds && (
+                  <div className="text-[9px] mt-1 tabular-nums" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                    {oddsMode === 'american' ? `${percentDisplay}% implied` : `${formatAmerican(americanDisplay)} american`}
+                  </div>
+                )}
               </Field>
             </div>
 
@@ -384,8 +427,8 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
                           {direction.toUpperCase()}
                         </span>
                         <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--chalk-dim)' }}>{target || '?'}</span>
-                        <span className={`text-xs font-bold tabular-nums`} style={{ color: oddsNum > 0 ? 'var(--color-green)' : 'var(--color-red)' }}>
-                          {formatAmerican(oddsNum)}
+                        <span className={`text-xs font-bold tabular-nums`} style={{ color: americanDisplay > 0 ? 'var(--color-green)' : 'var(--color-red)' }}>
+                          {formatAmerican(americanDisplay)}
                         </span>
                       </div>
                       <div className="text-right">
