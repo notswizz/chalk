@@ -835,14 +835,12 @@ html:has(.pinned-header-layout) main {
   position: sticky;
   top: 80px;
   align-self: flex-start;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 190px;
+  width: 220px;
   flex-shrink: 0;
-  padding: 16px 10px;
-  margin-top: 120px;
-  height: fit-content;
+  padding: 12px 10px;
+  margin-top: 24px;
+  max-height: calc(100vh - 100px);
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(45, 55, 45, 0.6) 0%, rgba(35, 45, 35, 0.8) 50%, rgba(40, 50, 40, 0.6) 100%);
   border: 2px solid rgba(120, 100, 70, 0.4);
@@ -859,6 +857,29 @@ html:has(.pinned-header-layout) main {
     linear-gradient(135deg, rgba(45, 55, 45, 0.6) 0%, rgba(35, 45, 35, 0.8) 50%, rgba(40, 50, 40, 0.6) 100%);
 }
 
+.clip-rail-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: calc(100vh - 140px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 228, 217, 0.1) transparent;
+}
+
+.clip-rail-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.clip-rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.clip-rail-scroll::-webkit-scrollbar-thumb {
+  background: rgba(232, 228, 217, 0.15);
+  border-radius: 2px;
+}
+
 .clip-rail-left {
   margin-right: 12px;
 }
@@ -870,6 +891,7 @@ html:has(.pinned-header-layout) main {
 .clip-rail-card {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   border-radius: 6px;
   overflow: hidden;
   background: rgba(232, 228, 217, 0.03);
@@ -890,6 +912,7 @@ html:has(.pinned-header-layout) main {
   aspect-ratio: 9 / 14;
   overflow: hidden;
   background: #111;
+  flex-shrink: 0;
 }
 
 .clip-rail-video-wrap video {

@@ -94,7 +94,7 @@ export default function HomePage() {
   useEffect(() => {
     fetch('/api/clips')
       .then((r) => r.json())
-      .then((d) => setClips((d.clips ?? []).slice(0, 4)))
+      .then((d) => setClips((d.clips ?? []).slice(0, 10)))
       .catch(() => {});
   }, []);
 
@@ -139,18 +139,19 @@ export default function HomePage() {
     ? upcomingGames.filter((g) => g.id !== featuredGame.id)
     : upcomingGames;
 
-  const leftClips = clips.slice(0, 2);
-  const rightClips = clips.slice(2, 4);
+  const leftClips = clips.slice(0, Math.ceil(clips.length / 2));
+  const rightClips = clips.slice(Math.ceil(clips.length / 2));
 
   return (
     <div className="home-with-clips">
       {/* Left clip rail */}
-      {clips.length > 0 && (
+      {leftClips.length > 0 && (
         <div className="clip-rail clip-rail-left">
-
-          {leftClips.map((clip) => (
-            <ClipCard key={clip.id} clip={clip} />
-          ))}
+          <div className="clip-rail-scroll">
+            {leftClips.map((clip) => (
+              <ClipCard key={clip.id} clip={clip} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -435,12 +436,13 @@ export default function HomePage() {
     </div>
 
       {/* Right clip rail */}
-      {clips.length > 2 && (
+      {rightClips.length > 0 && (
         <div className="clip-rail clip-rail-right">
-
-          {rightClips.map((clip) => (
-            <ClipCard key={clip.id} clip={clip} />
-          ))}
+          <div className="clip-rail-scroll">
+            {rightClips.map((clip) => (
+              <ClipCard key={clip.id} clip={clip} />
+            ))}
+          </div>
         </div>
       )}
     </div>
