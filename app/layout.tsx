@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     default: 'Chalk — Free Live Sports Streaming & Player Props | NBA, NFL, MLB, NHL, NCAA & Soccer',
     template: '%s | Chalk — Live Sports Streams',
   },
-  description: 'Watch free live sports streams — NBA, NFL, MLB, NHL, NCAA college basketball, and soccer. Bet on player props, clip highlights, and compete with friends. The best StreamEast & Buffstreams alternative with real-time scores and March Madness coverage.',
+  description: 'Watch free live sports streams — NBA, NFL, MLB, NHL, NCAA college basketball, and soccer. Peer-to-peer player prop betting, clip highlights, and compete with friends. The best StreamEast & Buffstreams alternative with real-time scores, prop bets, and March Madness coverage.',
   keywords: [
     // General
     'live sports streaming', 'free sports streams', 'sports streaming site',
@@ -58,8 +58,16 @@ export const metadata: Metadata = {
     'free soccer streams', 'soccer live stream free', 'football streams',
     'Premier League streams', 'Champions League streams', 'MLS streams',
     'La Liga streams', 'Serie A streams', 'watch soccer free',
+    // Betting & Props
+    'player props', 'player prop bets', 'prop betting', 'peer to peer betting',
+    'p2p sports betting', 'social sports betting', 'bet with friends',
+    'NBA player props', 'NFL player props', 'player prop predictions',
+    'over under bets', 'points rebounds assists props',
+    'free prop bets', 'prop bet app', 'daily fantasy alternative',
+    'sports betting no deposit', 'free sports betting',
+    'prizepicks alternative', 'underdog fantasy alternative',
     // Features
-    'player props', 'sports betting', 'live scores', 'sports clips',
+    'live scores', 'sports clips', 'sports highlights',
   ],
   manifest: '/manifest.json',
   icons: {
@@ -79,7 +87,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Chalk — Free Live Sports Streams',
     title: 'Chalk — Free Live Sports Streams | NBA, NFL, MLB, NHL, NCAA & Soccer',
-    description: 'Watch free live sports streams — NBA, NFL, MLB, NHL, NCAA, and soccer. Bet player props, clip highlights, compete with friends. Better than StreamEast & Buffstreams.',
+    description: 'Watch free live sports streams — NBA, NFL, MLB, NHL, NCAA, and soccer. Peer-to-peer player prop betting, clip highlights, compete with friends. Better than StreamEast, Buffstreams, and PrizePicks.',
     url: 'https://chalkstreams.live',
     locale: 'en_US',
     images: [{ url: '/chalk-logo.png', width: 512, height: 512, alt: 'Chalk — Free Live Sports Streaming' }],
@@ -88,7 +96,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: '@chalkstreams',
     title: 'Chalk — Free Live Sports Streams | NBA, NFL, NCAA & More',
-    description: 'Watch free live NBA, NFL, MLB, NHL, NCAA & soccer streams. Bet player props with friends. The best free sports streaming platform.',
+    description: 'Watch free live NBA, NFL, MLB, NHL, NCAA & soccer streams. Peer-to-peer player prop betting with friends. The best free sports streaming & prop bet platform.',
     images: ['/chalk-logo.png'],
   },
   robots: {
@@ -196,7 +204,7 @@ export default function RootLayout({
                       name: 'How do player props work on Chalk?',
                       acceptedAnswer: {
                         '@type': 'Answer',
-                        text: 'Player props let you bet on individual player stats like points, rebounds, assists, and 3-pointers. Pick over or under on a target number, set your stake, and wait for another user to take the other side. Results are graded automatically from ESPN box scores.',
+                        text: 'Chalk uses peer-to-peer prop betting — you set a player prop (like LeBron over 25.5 points), choose your stake in CHALK tokens, and another user takes the other side. No house edge, no bookmaker — just you vs another fan. Results are graded automatically from ESPN box scores. It\'s like PrizePicks or Underdog but social and free.',
                       },
                     },
                     {
