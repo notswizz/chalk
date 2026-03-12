@@ -26,20 +26,40 @@ const chalkMono = Indie_Flower({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Chalk — Free Live Sports Streaming & Player Props | NBA Streams',
+    default: 'Chalk — Free Live Sports Streaming & Player Props | NBA, NFL, MLB, NHL, NCAA & Soccer',
     template: '%s | Chalk — Live Sports Streams',
   },
-  description: 'Watch free live NBA streams, bet on player props, and compete with friends. The best StreamEast & Buffstreams alternative for live sports streaming, scores, and real-time player prop betting with CHALK tokens.',
+  description: 'Watch free live sports streams — NBA, NFL, MLB, NHL, NCAA college basketball, and soccer. Bet on player props, clip highlights, and compete with friends. The best StreamEast & Buffstreams alternative with real-time scores and March Madness coverage.',
   keywords: [
-    'live sports streaming', 'free NBA streams', 'NBA live stream free',
+    // General
+    'live sports streaming', 'free sports streams', 'sports streaming site',
     'streameast', 'stream east', 'buffstreams', 'buffstream', 'buff streams',
-    'crackstreams', 'sportsurge', 'nbastreams', 'nba streams',
-    'watch NBA live', 'NBA streams free', 'live NBA games',
-    'player props', 'NBA player props', 'sports betting',
-    'NBA scores today', 'NBA games tonight', 'live sports free',
-    'basketball streams', 'NBA live free', 'watch basketball online',
-    'sports streaming site', 'free sports streams',
+    'crackstreams', 'sportsurge', 'live sports free',
     'chalk streams', 'chalkstreams', 'chalk sports',
+    // NBA
+    'free NBA streams', 'NBA live stream free', 'nbastreams', 'nba streams',
+    'watch NBA live', 'NBA streams free', 'live NBA games',
+    'NBA scores today', 'NBA games tonight', 'basketball streams',
+    // NCAA
+    'NCAA streams', 'college basketball streams', 'March Madness streams',
+    'NCAA live stream free', 'watch March Madness free', 'college basketball live',
+    'NCAA tournament streams', 'March Madness live free',
+    // NFL
+    'free NFL streams', 'NFL live stream free', 'nflstreams', 'nfl streams',
+    'watch NFL live', 'NFL streams free', 'NFL Sunday streams',
+    'NFL Thursday Night Football stream', 'NFL Monday Night Football stream',
+    // MLB
+    'free MLB streams', 'MLB live stream free', 'mlbstreams', 'mlb streams',
+    'watch MLB live', 'baseball streams free', 'MLB games today',
+    // NHL
+    'free NHL streams', 'NHL live stream free', 'nhlstreams', 'nhl streams',
+    'watch NHL live', 'hockey streams free', 'NHL games today',
+    // Soccer
+    'free soccer streams', 'soccer live stream free', 'football streams',
+    'Premier League streams', 'Champions League streams', 'MLS streams',
+    'La Liga streams', 'Serie A streams', 'watch soccer free',
+    // Features
+    'player props', 'sports betting', 'live scores', 'sports clips',
   ],
   manifest: '/manifest.json',
   icons: {
@@ -57,18 +77,18 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    siteName: 'Chalk — Live Sports Streams & Player Props',
-    title: 'Chalk — Free Live NBA Streams & Player Prop Betting',
-    description: 'Watch free live NBA streams and bet player props with friends. Better than StreamEast & Buffstreams — real scores, real stakes, on the board.',
+    siteName: 'Chalk — Free Live Sports Streams',
+    title: 'Chalk — Free Live Sports Streams | NBA, NFL, MLB, NHL, NCAA & Soccer',
+    description: 'Watch free live sports streams — NBA, NFL, MLB, NHL, NCAA, and soccer. Bet player props, clip highlights, compete with friends. Better than StreamEast & Buffstreams.',
     url: 'https://chalkstreams.live',
     locale: 'en_US',
-    images: [{ url: '/chalk-logo.png', width: 512, height: 512, alt: 'Chalk — Live Sports Streaming & Player Props' }],
+    images: [{ url: '/chalk-logo.png', width: 512, height: 512, alt: 'Chalk — Free Live Sports Streaming' }],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@chalkstreams',
-    title: 'Chalk — Free Live NBA Streams & Player Props',
-    description: 'Watch free live NBA streams and bet player props with friends. The best free sports streaming alternative.',
+    title: 'Chalk — Free Live Sports Streams | NBA, NFL, NCAA & More',
+    description: 'Watch free live NBA, NFL, MLB, NHL, NCAA & soccer streams. Bet player props with friends. The best free sports streaming platform.',
     images: ['/chalk-logo.png'],
   },
   robots: {
@@ -113,7 +133,7 @@ export default function RootLayout({
                   '@id': 'https://chalkstreams.live/#website',
                   url: 'https://chalkstreams.live',
                   name: 'Chalk',
-                  description: 'Free live sports streaming with player prop betting. Watch NBA games live and bet on player stats with CHALK tokens.',
+                  description: 'Free live sports streaming with player prop betting. Watch NBA, NFL, MLB, NHL, NCAA, and soccer games live. Bet on player stats with CHALK tokens.',
                   potentialAction: {
                     '@type': 'SearchAction',
                     target: 'https://chalkstreams.live/sport/{search_term_string}',
@@ -160,7 +180,7 @@ export default function RootLayout({
                       name: 'What is Chalk?',
                       acceptedAnswer: {
                         '@type': 'Answer',
-                        text: 'Chalk is a free live sports streaming platform where you can watch NBA games, bet on player props like points, rebounds, assists, and 3-pointers, and compete with friends using CHALK tokens. It\'s the best alternative to StreamEast and Buffstreams.',
+                        text: 'Chalk is a free live sports streaming platform where you can watch NBA, NFL, MLB, NHL, NCAA college basketball, and soccer games. Bet on player props like points, rebounds, assists, and 3-pointers, clip highlights, and compete with friends using CHALK tokens. It\'s the best alternative to StreamEast, Buffstreams, and Crackstreams.',
                       },
                     },
                     {
@@ -168,7 +188,7 @@ export default function RootLayout({
                       name: 'Is Chalk free to use?',
                       acceptedAnswer: {
                         '@type': 'Answer',
-                        text: 'Yes! Chalk is completely free to use. You get 500 CHALK tokens when you sign up, and you can start watching live NBA streams and betting on player props immediately.',
+                        text: 'Yes! Chalk is completely free to use. You get 500 CHALK tokens when you sign up, and you can start watching live streams across NBA, NFL, MLB, NHL, NCAA, and soccer — plus bet on player props immediately.',
                       },
                     },
                     {
@@ -184,7 +204,7 @@ export default function RootLayout({
                       name: 'What sports can I stream on Chalk?',
                       acceptedAnswer: {
                         '@type': 'Answer',
-                        text: 'Chalk currently features live NBA streaming with real-time scores, player stats, and prop betting. More sports including NFL, MLB, NHL, and soccer are coming soon.',
+                        text: 'Chalk supports NBA, NFL, MLB, NHL, NCAA college basketball, and soccer streams — all free with real-time scores, player stats, and prop betting. March Madness and playoff coverage included during their respective seasons.',
                       },
                     },
                     {
@@ -192,7 +212,7 @@ export default function RootLayout({
                       name: 'Is Chalk better than StreamEast or Buffstreams?',
                       acceptedAnswer: {
                         '@type': 'Answer',
-                        text: 'Chalk offers a cleaner, ad-free experience with live scores, real-time player prop betting, and social features like clips and leaderboards. Unlike StreamEast or Buffstreams, Chalk lets you bet on player props while watching games.',
+                        text: 'Chalk offers a cleaner, ad-free experience with live scores across NBA, NFL, MLB, NHL, NCAA, and soccer. Real-time player prop betting, clip highlights, and leaderboards set it apart. Unlike StreamEast or Buffstreams, Chalk lets you bet on player props and share clips while watching games.',
                       },
                     },
                   ],

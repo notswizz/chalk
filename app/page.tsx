@@ -157,50 +157,46 @@ export default function HomePage() {
 
     <div className="home-layout max-w-3xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
-      <div className="home-header pt-6 pb-4">
-        {/* Sport Toggle */}
-        <div className="flex items-center justify-center mb-4 fade-up">
-          <div
-            className="flex items-center gap-1 p-1 rounded-[6px]"
-            style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-medium)' }}
-          >
-            <button
-              onClick={() => setSport('nba')}
-              className="px-5 py-2 rounded-[5px] text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer"
-              style={{
-                fontFamily: 'var(--font-chalk-header)',
-                background: sport === 'nba' ? 'rgba(245,217,96,0.15)' : 'transparent',
-                color: sport === 'nba' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-                border: sport === 'nba' ? '1px solid rgba(245,217,96,0.25)' : '1px solid transparent',
-              }}
+      <div className="home-header pt-4 pb-3">
+        {/* Sport Toggle + Date + Controls — single row */}
+        <div className="flex items-center justify-between mb-3 fade-up">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center gap-0.5 p-0.5 rounded-[5px]"
+              style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-medium)' }}
             >
-              NBA
-            </button>
-            <button
-              onClick={() => setSport('ncaam')}
-              className="px-5 py-2 rounded-[5px] text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer"
-              style={{
-                fontFamily: 'var(--font-chalk-header)',
-                background: sport === 'ncaam' ? 'rgba(245,217,96,0.15)' : 'transparent',
-                color: sport === 'ncaam' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-                border: sport === 'ncaam' ? '1px solid rgba(245,217,96,0.25)' : '1px solid transparent',
-              }}
-            >
-              NCAA
-            </button>
-          </div>
-        </div>
-
-        {/* Date + Controls */}
-        <div className="flex items-end justify-between mb-5 fade-up">
-          <div>
-            <span className="text-[11px] tracking-wide" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              <button
+                onClick={() => setSport('nba')}
+                className="px-3 py-1 rounded-[4px] text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer"
+                style={{
+                  fontFamily: 'var(--font-chalk-header)',
+                  background: sport === 'nba' ? 'rgba(245,217,96,0.15)' : 'transparent',
+                  color: sport === 'nba' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                  border: sport === 'nba' ? '1px solid rgba(245,217,96,0.25)' : '1px solid transparent',
+                }}
+              >
+                NBA
+              </button>
+              <button
+                onClick={() => setSport('ncaam')}
+                className="px-3 py-1 rounded-[4px] text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer"
+                style={{
+                  fontFamily: 'var(--font-chalk-header)',
+                  background: sport === 'ncaam' ? 'rgba(245,217,96,0.15)' : 'transparent',
+                  color: sport === 'ncaam' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                  border: sport === 'ncaam' ? '1px solid rgba(245,217,96,0.25)' : '1px solid transparent',
+                }}
+              >
+                NCAA
+              </button>
+            </div>
+            <span className="text-[10px] tracking-wide" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
           </div>
           <div className="flex items-center gap-2">
             {liveCount > 0 && (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] text-xs uppercase tracking-wider"
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider"
                 style={{ background: 'rgba(245,217,96,0.08)', color: 'var(--color-yellow)', fontFamily: 'var(--font-chalk-header)', border: '1px dashed rgba(245,217,96,0.15)' }}
               >
                 <span className="w-1.5 h-1.5 rounded-full live-ring" style={{ background: 'var(--color-yellow)' }} />
@@ -209,10 +205,10 @@ export default function HomePage() {
             )}
             <button
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={`chalk-btn flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-sm transition-all duration-200 cursor-pointer ${showFavoritesOnly ? 'chalk-btn-accent' : ''}`}
+              className={`chalk-btn flex items-center gap-1 px-2 py-1 rounded-[4px] text-xs transition-all duration-200 cursor-pointer ${showFavoritesOnly ? 'chalk-btn-accent' : ''}`}
               style={{ fontFamily: 'var(--font-chalk-body)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill={showFavoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={showFavoritesOnly ? 0 : 2}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill={showFavoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={showFavoritesOnly ? 0 : 2}>
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
               Favorites
