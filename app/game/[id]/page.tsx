@@ -389,6 +389,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
             gameId={id}
             gameTitle={`${game.awayTeam.displayName} vs ${game.homeTeam.displayName}`}
             gameOver={game.state === 'post'}
+            gameLive={game.state === 'in'}
             teams={[game.awayTeam.abbreviation, game.homeTeam.abbreviation]}
             teamIds={[game.awayTeam.id || '', game.homeTeam.id || '']}
             teamLogos={[game.awayTeam.logo, game.homeTeam.logo]}

@@ -5,13 +5,32 @@ import { useUser } from '@/hooks/useUser';
 import { BetCard, Bet } from './BetCard';
 import { CreateBetModal } from './CreateBetModal';
 
-export function BetFeed({ gameId, gameTitle, gameOver, teams, teamIds, teamLogos, sport }: { gameId: string; gameTitle: string; gameOver?: boolean; teams?: string[]; teamIds?: string[]; teamLogos?: string[]; sport?: string }) {
+export function BetFeed({ gameId, gameTitle, gameOver, gameLive, teams, teamIds, teamLogos, sport }: { gameId: string; gameTitle: string; gameOver?: boolean; gameLive?: boolean; teams?: string[]; teamIds?: string[]; teamLogos?: string[]; sport?: string }) {
   const { authenticated, login, getAccessToken, refreshProfile } = useUser();
   const [tab, setTab] = useState<'open' | 'mine'>('open');
   const [bets, setBets] = useState<Bet[]>([]);
   const [myBets, setMyBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [liveStats, setLiveStats] = useState<Record<string, Record<string, number>>>({});
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<number | null>(null);
+
+  const fetchLiveStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const res = await fetch(`/api/bets/live-stats?gameId=${gameId}&sport=${sport || 'nba'}`);
+      const data = await res.json();
+      setLiveStats(data.stats ?? {});
+      setLastRefresh(Date.now());
+    } catch { /* silent */ }
+    finally { setStatsLoading(false); }
+  }, [gameId, sport]);
+
+  // Auto-fetch live stats when game is live
+  useEffect(() => {
+    if (gameLive) fetchLiveStats();
+  }, [gameLive, fetchLiveStats]);
 
   const fetchBets = useCallback(async () => {
     try {
@@ -62,32 +81,58 @@ export function BetFeed({ gameId, gameTitle, gameOver, teams, teamIds, teamLogos
   const openCount = bets.filter((b) => b.status === 'open').length;
   const matchedCount = bets.filter((b) => b.status === 'matched').length;
 
+  function getPlayerLiveStats(playerName: string): Record<string, number> | null {
+    if (!playerName) return null;
+    const key = playerName.toLowerCase();
+    if (liveStats[key]) return liveStats[key];
+    // Try last name match
+    const lastName = key.split(' ').pop() || '';
+    for (const [name, stats] of Object.entries(liveStats)) {
+      if (name.split(' ').pop() === lastName) return stats;
+    }
+    return null;
+  }
+
   return (
     <div className="mt-2">
       {/* Section header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="section-label">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-            The Board
-          </div>
-          {!loading && (openCount > 0 || matchedCount > 0) && (
-            <div className="flex items-center gap-1.5">
-              {openCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold tabular-nums" style={{ background: 'rgba(93,232,138,0.08)', color: 'var(--color-green)' }}>
-                  {openCount} open
-                </span>
-              )}
-              {matchedCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold tabular-nums" style={{ background: 'rgba(245,217,96,0.08)', color: 'var(--color-yellow)' }}>
-                  {matchedCount} matched
-                </span>
-              )}
-            </div>
-          )}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="section-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--chalk-ghost)' }}>
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+          The Board
         </div>
+        {!loading && (openCount > 0 || matchedCount > 0) && (
+          <>
+            {openCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold tabular-nums" style={{ background: 'rgba(93,232,138,0.08)', color: 'var(--color-green)' }}>
+                {openCount} open
+              </span>
+            )}
+            {matchedCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold tabular-nums" style={{ background: 'rgba(245,217,96,0.08)', color: 'var(--color-yellow)' }}>
+                {matchedCount} matched
+              </span>
+            )}
+          </>
+        )}
+        {(gameLive || gameOver) && bets.length > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); fetchLiveStats(); }}
+            disabled={statsLoading}
+            className="p-1 rounded-[4px] cursor-pointer transition-all"
+            style={{ color: 'var(--color-blue, #5db8e8)' }}
+            title="Refresh live stats"
+          >
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              className={statsLoading ? 'animate-spin' : ''}
+            >
+              <path d="M23 4v6h-6" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Tab bar */}
@@ -150,7 +195,7 @@ export function BetFeed({ gameId, gameTitle, gameOver, teams, teamIds, teamLogos
       ) : (
         <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 380, scrollbarWidth: 'thin', scrollbarColor: 'var(--dust-medium) transparent' }}>
           {displayBets.map((bet) => (
-            <BetCard key={bet.id} bet={bet as Bet} onUpdate={handleUpdate} gameOver={gameOver} />
+            <BetCard key={bet.id} bet={bet as Bet} onUpdate={handleUpdate} gameOver={gameOver} liveStats={getPlayerLiveStats(bet.player)} />
           ))}
         </div>
       )}

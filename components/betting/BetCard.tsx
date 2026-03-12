@@ -2,7 +2,7 @@
 
 import { useUser } from '@/hooks/useUser';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChalkCardModal } from '@/components/chalk-cards/ChalkCardModal';
 
@@ -97,13 +97,16 @@ export function toAmericanOdds(decimal: number) {
   return `${Math.round(-100 / decimal)}`;
 }
 
-export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpdate: () => void; showGame?: boolean; gameOver?: boolean }) {
+export function BetCard({ bet, onUpdate, showGame, gameOver, liveStats }: { bet: Bet; onUpdate: () => void; showGame?: boolean; gameOver?: boolean; liveStats?: Record<string, number> | null }) {
   const { authenticated, userId, getAccessToken, login } = useUser();
   const { price } = useChalkPrice();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showChalkCard, setShowChalkCard] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  const currentStat = liveStats?.[bet.stat];
+  const isTracking = currentStat != null && (bet.status === 'matched' || bet.status === 'open');
 
   const isCreator = userId === bet.creatorId;
   const isTaker = userId === bet.takerId;
@@ -259,6 +262,18 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
             <span className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
             <span className="text-[11px] chalk-header" style={{ color: 'var(--chalk-dim)' }}>{statLabel}</span>
           </div>
+          {isTracking && (
+            <div className="flex items-center justify-center gap-1.5 mt-1.5">
+              <span className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Now:</span>
+              <span
+                className="text-sm tabular-nums chalk-score"
+                style={{ color: currentStat >= bet.target ? 'var(--color-green)' : 'var(--color-yellow)' }}
+              >
+                {currentStat}
+              </span>
+              <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+            </div>
+          )}
         </div>
 
         {/* Numbers strip */}
@@ -339,6 +354,8 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
           onCancel={handleCancel}
           onClose={() => setShowModal(false)}
           price={price}
+          userId={userId}
+          getAccessToken={getAccessToken}
         />,
         document.body
       )}
@@ -412,13 +429,80 @@ export function BetCard({ bet, onUpdate, showGame, gameOver }: { bet: Bet; onUpd
   );
 }
 
-export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price }: {
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  createdAt: number;
+}
+
+export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, isCreator, isOpen, loading, onCancel, onClose, price, userId, getAccessToken }: {
   bet: Bet; statLabel: string; takerOdds: string; creatorOdds: string; pool: number;
   isCreator: boolean; isOpen: boolean; loading: boolean;
   onCancel: () => void; onClose: () => void; price: number | null;
+  userId?: string | null; getAccessToken?: () => Promise<string | null>;
 }) {
   const [showShareCard, setShowShareCard] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
+
+  const isParticipant = bet.takerId && (userId === bet.creatorId || userId === bet.takerId);
+
+  const fetchMessages = useCallback(async () => {
+    if (!getAccessToken || !isParticipant) return;
+    setChatLoading(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(`/api/bets/chat?betId=${bet.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages ?? []);
+      }
+    } catch { /* silent */ }
+    finally { setChatLoading(false); }
+  }, [bet.id, getAccessToken, isParticipant]);
+
+  useEffect(() => {
+    if (showChat && isParticipant) fetchMessages();
+  }, [showChat, isParticipant, fetchMessages]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Poll for new messages every 5s while chat is open
+  useEffect(() => {
+    if (!showChat || !isParticipant) return;
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [showChat, isParticipant, fetchMessages]);
+
+  async function sendMessage() {
+    if (!chatText.trim() || !getAccessToken || sending) return;
+    setSending(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/bets/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ betId: bet.id, text: chatText.trim() }),
+      });
+      if (res.ok) {
+        setChatText('');
+        fetchMessages();
+      }
+    } catch { /* silent */ }
+    finally { setSending(false); }
+  }
 
   return (
     <div
@@ -427,12 +511,39 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
       onClick={onClose}
     >
       <div
-        className="chalk-card rounded-[4px] w-full max-w-sm overflow-hidden fade-up"
+        className="chalk-card rounded-[4px] w-full max-w-sm overflow-hidden fade-up flex flex-col"
+        style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header with tab toggle */}
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px dashed var(--dust-light)' }}>
-          <span className="chalk-header text-base" style={{ color: 'var(--chalk-white)' }}>Prop Detail</span>
+          <div className="flex items-center gap-1 p-0.5 rounded-[4px]" style={{ background: 'var(--dust-light)' }}>
+            <button
+              onClick={() => setShowChat(false)}
+              className="px-2.5 py-1 rounded-[3px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all"
+              style={{
+                background: !showChat ? 'rgba(245,217,96,0.12)' : 'transparent',
+                color: !showChat ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+              }}
+            >
+              Detail
+            </button>
+            {isParticipant && (
+              <button
+                onClick={() => setShowChat(true)}
+                className="px-2.5 py-1 rounded-[3px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all flex items-center gap-1.5"
+                style={{
+                  background: showChat ? 'rgba(93,184,232,0.12)' : 'transparent',
+                  color: showChat ? 'var(--color-blue, #5db8e8)' : 'var(--chalk-ghost)',
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+                Chat
+              </button>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 rounded-[4px] cursor-pointer" style={{ color: 'var(--chalk-ghost)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -440,73 +551,155 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
-          {/* Player + prop */}
-          <div>
-            <div className="text-lg chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <span
-                className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
-                style={{ background: 'rgba(93,232,138,0.15)', color: 'var(--color-green)', border: '1px dashed rgba(93,232,138,0.3)' }}
+        {/* Content: Detail or Chat */}
+        {!showChat ? (
+          <div className="p-4 space-y-4 overflow-y-auto">
+            {/* Player + prop */}
+            <div>
+              <div className="text-lg chalk-header" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
+                  style={{ background: 'rgba(93,232,138,0.15)', color: 'var(--color-green)', border: '1px dashed rgba(93,232,138,0.3)' }}
+                >
+                  O
+                </span>
+                <span style={{ color: 'var(--chalk-ghost)', fontSize: '8px' }}>/</span>
+                <span
+                  className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
+                  style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)', border: '1px dashed rgba(232,93,93,0.3)' }}
+                >
+                  U
+                </span>
+                <span className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
+                <span className="text-sm" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+              </div>
+            </div>
+
+            {/* Pot */}
+            <div className="text-center py-2.5 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
+              <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Total Pot</div>
+              <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{pool}</div>
+              {price !== null && <div className="text-[10px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(pool, price)}</div>}
+            </div>
+
+            {/* Both sides breakdown */}
+            <BetSidesBreakdown bet={bet} pool={pool} price={price} creatorOdds={creatorOdds} takerOdds={takerOdds} isCreator={isCreator} />
+
+            {/* Meta */}
+            <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+              <span>By {bet.creatorName}</span>
+              {bet.takerName && <><span style={{ opacity: 0.3 }}>|</span><span>Taken by {bet.takerName}</span></>}
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span className="tabular-nums">{new Date(bet.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowShareCard(true)}
+                className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer transition-all flex items-center justify-center gap-2"
+                style={{ background: 'rgba(245,217,96,0.1)', border: '1.5px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
               >
-                O
-              </span>
-              <span style={{ color: 'var(--chalk-ghost)', fontSize: '8px' }}>/</span>
-              <span
-                className="px-1.5 py-px rounded-[2px] text-[9px] chalk-header tracking-wide"
-                style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)', border: '1px dashed rgba(232,93,93,0.3)' }}
-              >
-                U
-              </span>
-              <span className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
-              <span className="text-sm" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+                Share
+              </button>
+              {isOpen && isCreator && (
+                <button
+                  onClick={onCancel}
+                  disabled={loading}
+                  className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50 transition-all"
+                  style={{ background: 'rgba(232,93,93,0.1)', border: '1.5px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}
+                >
+                  {loading ? '...' : 'Erase this prop'}
+                </button>
+              )}
             </div>
           </div>
+        ) : (
+          /* Full chat view */
+          <div className="flex flex-col" style={{ minHeight: 350 }}>
+            {/* Compact prop summary bar */}
+            <div className="flex items-center gap-2 px-4 py-2" style={{ background: 'rgba(232,228,217,0.03)', borderBottom: '1px dashed rgba(232,228,217,0.06)' }}>
+              <span className="text-[11px] chalk-header truncate" style={{ color: 'var(--chalk-white)' }}>{bet.player}</span>
+              <span className="text-[9px] chalk-header" style={{ color: dirColor }}>{bet.direction.toUpperCase()}</span>
+              <span className="text-[11px] tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
+              <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+            </div>
 
-          {/* Pot */}
-          <div className="text-center py-2.5 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
-            <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Total Pot</div>
-            <div className="text-2xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{pool}</div>
-            {price !== null && <div className="text-[10px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>{formatUsd(pool, price)}</div>}
-          </div>
+            {/* Messages area */}
+            <div className="flex-1 p-3 space-y-2.5 overflow-y-auto" style={{ maxHeight: 320, scrollbarWidth: 'thin', scrollbarColor: 'var(--dust-medium) transparent' }}>
+              {chatLoading && messages.length === 0 ? (
+                <div className="text-center py-8 text-[10px]" style={{ color: 'var(--chalk-ghost)' }}>Loading...</div>
+              ) : messages.length === 0 ? (
+                <div className="text-center py-8">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-2" style={{ color: 'var(--chalk-ghost)' }}>
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                  <div className="text-[11px] chalk-header" style={{ color: 'var(--chalk-ghost)' }}>No messages yet</div>
+                  <div className="text-[9px] mt-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)', opacity: 0.6 }}>Talk your talk</div>
+                </div>
+              ) : (
+                messages.map((msg) => {
+                  const isMe = msg.senderId === userId;
+                  return (
+                    <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                      <span className="text-[8px] chalk-header tracking-wider mb-0.5" style={{ color: isMe ? 'var(--color-yellow)' : 'var(--color-blue, #5db8e8)' }}>
+                        {msg.senderName}
+                      </span>
+                      <div
+                        className="px-2.5 py-1.5 rounded-[4px] text-[11px] max-w-[85%]"
+                        style={{
+                          background: isMe ? 'rgba(245,217,96,0.1)' : 'rgba(93,184,232,0.08)',
+                          color: 'var(--chalk-white)',
+                          fontFamily: 'var(--font-chalk-body)',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="text-[7px] tabular-nums mt-0.5" style={{ color: 'var(--chalk-ghost)' }}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatEndRef} />
+            </div>
 
-          {/* Both sides breakdown */}
-          <BetSidesBreakdown bet={bet} pool={pool} price={price} creatorOdds={creatorOdds} takerOdds={takerOdds} isCreator={isCreator} />
-
-          {/* Meta */}
-          <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-            <span>By {bet.creatorName}</span>
-            {bet.takerName && <><span style={{ opacity: 0.3 }}>|</span><span>Taken by {bet.takerName}</span></>}
-            <span style={{ opacity: 0.3 }}>|</span>
-            <span className="tabular-nums">{new Date(bet.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowShareCard(true)}
-              className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer transition-all flex items-center justify-center gap-2"
-              style={{ background: 'rgba(245,217,96,0.1)', border: '1.5px dashed rgba(245,217,96,0.25)', color: 'var(--color-yellow)' }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <polyline points="16 6 12 2 8 6" />
-                <line x1="12" y1="2" x2="12" y2="15" />
-              </svg>
-              Share
-            </button>
-            {isOpen && isCreator && (
+            {/* Input */}
+            <div className="flex gap-1.5 p-3" style={{ borderTop: '1px dashed rgba(232,228,217,0.08)' }}>
+              <input
+                type="text"
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder="Talk your talk..."
+                maxLength={500}
+                className="flex-1 px-2.5 py-2 rounded-[4px] text-[11px] outline-none"
+                style={{
+                  background: 'rgba(232,228,217,0.06)',
+                  border: '1px dashed rgba(232,228,217,0.1)',
+                  color: 'var(--chalk-white)',
+                  fontFamily: 'var(--font-chalk-body)',
+                }}
+              />
               <button
-                onClick={onCancel}
-                disabled={loading}
-                className="flex-1 py-2.5 rounded-[4px] chalk-header text-sm tracking-wide cursor-pointer disabled:opacity-50 transition-all"
-                style={{ background: 'rgba(232,93,93,0.1)', border: '1.5px dashed rgba(232,93,93,0.25)', color: 'var(--color-red)' }}
+                onClick={sendMessage}
+                disabled={sending || !chatText.trim()}
+                className="px-3 py-2 rounded-[4px] chalk-header text-[10px] tracking-wide cursor-pointer disabled:opacity-30 transition-all"
+                style={{ background: 'rgba(93,184,232,0.15)', color: 'var(--color-blue, #5db8e8)' }}
               >
-                {loading ? '...' : 'Erase this prop'}
+                {sending ? '...' : 'Send'}
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {showShareCard && <ChalkCardModal bet={bet} onClose={() => setShowShareCard(false)} />}

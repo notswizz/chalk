@@ -98,12 +98,13 @@ export interface PlayerBoxScore {
 }
 
 /**
- * Fetch player box scores for a finished game from ESPN.
+ * Fetch player box scores for a live or finished game from ESPN.
  * Returns a map of normalized player name → stats.
  */
-export async function fetchPlayerBoxScore(gameId: string): Promise<PlayerBoxScore[]> {
+export async function fetchPlayerBoxScore(gameId: string, sport?: string): Promise<PlayerBoxScore[]> {
+  const path = sport === 'ncaam' ? 'basketball/mens-college-basketball' : 'basketball/nba';
   const res = await fetch(
-    `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`,
+    `${ESPN_BASE}/${path}/summary?event=${gameId}`,
     { cache: 'no-store' }
   );
   if (!res.ok) return [];
