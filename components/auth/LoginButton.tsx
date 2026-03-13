@@ -9,7 +9,7 @@ import { SetUsernameModal } from './SetUsernameModal';
 import { useChalkPrice, formatUsd } from '@/hooks/useChalkPrice';
 
 export function LoginButton() {
-  const { login, logout, authenticated, ready, profile, loadingProfile, refreshProfile, needsUsername, setUsername, wallet, walletMismatch, savedWalletAddress } = useUser();
+  const { login, logout, authenticated, ready, profile, loadingProfile, refreshProfile, needsUsername, setUsername, wallet, walletMismatch, savedWalletAddress, user } = useUser();
   const { connectWallet } = useConnectWallet();
   const { price } = useChalkPrice();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -141,81 +141,109 @@ export function LoginButton() {
             </svg>
           </button>
 
-          {/* Dropdown — chalk-card style */}
+          {/* Dropdown */}
           {menuOpen && (
             <div
-              className="absolute right-0 top-full mt-2 w-48 rounded-[4px] py-1.5 shadow-2xl shadow-black/50 z-50 chalk-card"
+              className="absolute right-0 top-full mt-2 w-56 rounded-lg overflow-hidden shadow-2xl shadow-black/60 z-50"
+              style={{
+                background: 'rgba(22, 36, 22, 0.97)',
+                border: '1px solid rgba(245,217,96,0.1)',
+                backdropFilter: 'blur(16px)',
+              }}
             >
-              {!wallet ? (
-                <button
-                  onClick={() => { setMenuOpen(false); connectWallet(); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                  style={{ color: 'var(--color-yellow)' }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="2" y="6" width="20" height="12" rx="2" />
-                    <path d="M16 12h.01" />
-                  </svg>
-                  Connect Wallet
-                </button>
-              ) : (
-                <>
+              {/* User info header */}
+              <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px dashed rgba(232,228,217,0.06)' }}>
+                {avatar ? (
+                  <img src={avatar} alt={name} className="w-9 h-9 rounded-full object-cover ring-2" style={{ ringColor: 'rgba(245,217,96,0.2)' }} referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--color-yellow)', color: 'var(--board-dark)' }}>
+                    {name[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate" style={{ color: 'var(--chalk-white)' }}>{name}</div>
+                  <div className="text-[11px] truncate" style={{ color: 'var(--chalk-ghost)' }}>
+                    {user?.email?.address || user?.google?.email || ''}
+                  </div>
+                </div>
+              </div>
+
+              <div className="py-1.5">
+                {!wallet ? (
                   <button
-                    onClick={() => {
-                      if (walletMismatch) { setMenuOpen(false); setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
-                      setMenuOpen(false); setShowAddTokens(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                    style={{ color: walletMismatch ? 'var(--chalk-ghost)' : 'var(--chalk-dim)' }}
+                    onClick={() => { setMenuOpen(false); connectWallet(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-150 cursor-pointer hover:bg-[rgba(245,217,96,0.06)]"
+                    style={{ color: 'var(--color-yellow)' }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8v8M8 12h8" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                      <rect x="2" y="6" width="20" height="12" rx="2" />
+                      <path d="M16 12h.01" />
                     </svg>
-                    Deposit
-                    {walletMismatch && <span className="text-[10px] ml-auto" style={{ color: 'var(--color-red)' }}>!</span>}
+                    Connect Wallet
                   </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (walletMismatch) { setMenuOpen(false); setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
+                        setMenuOpen(false); setShowAddTokens(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-150 cursor-pointer hover:bg-[rgba(245,217,96,0.06)]"
+                      style={{ color: walletMismatch ? 'var(--chalk-ghost)' : 'var(--chalk-dim)' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2" className="shrink-0">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 8v8M8 12h8" />
+                      </svg>
+                      Deposit
+                      {walletMismatch && <span className="text-[10px] ml-auto px-1.5 py-0.5 rounded" style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)' }}>wrong wallet</span>}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (walletMismatch) { setMenuOpen(false); setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
+                        setMenuOpen(false); setShowWithdraw(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-150 cursor-pointer hover:bg-[rgba(245,217,96,0.06)]"
+                      style={{ color: walletMismatch ? 'var(--chalk-ghost)' : 'var(--chalk-dim)' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2" className="shrink-0">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M8 12h8M12 8l4 4-4 4" />
+                      </svg>
+                      Withdraw
+                      {walletMismatch && <span className="text-[10px] ml-auto px-1.5 py-0.5 rounded" style={{ background: 'rgba(232,93,93,0.15)', color: 'var(--color-red)' }}>wrong wallet</span>}
+                    </button>
+                  </>
+                )}
+                {needsUsername && (
                   <button
-                    onClick={() => {
-                      if (walletMismatch) { setMenuOpen(false); setMismatchToast(true); setTimeout(() => setMismatchToast(false), 3000); return; }
-                      setMenuOpen(false); setShowWithdraw(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                    style={{ color: walletMismatch ? 'var(--chalk-ghost)' : 'var(--chalk-dim)' }}
+                    onClick={() => { setMenuOpen(false); setShowEditProfile(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-150 cursor-pointer hover:bg-[rgba(245,217,96,0.06)]"
+                    style={{ color: 'var(--chalk-dim)' }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-yellow)" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M8 12h8M12 8l4 4-4 4" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
                     </svg>
-                    Withdraw
-                    {walletMismatch && <span className="text-[10px] ml-auto" style={{ color: 'var(--color-red)' }}>!</span>}
+                    Set Username
                   </button>
-                </>
-              )}
-              {needsUsername && (
+                )}
+              </div>
+
+              <div className="mx-3" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }} />
+
+              <div className="py-1.5">
                 <button
-                  onClick={() => { setMenuOpen(false); setShowEditProfile(true); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                  style={{ color: 'var(--chalk-dim)' }}
+                  onClick={() => { setMenuOpen(false); logout(); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-150 cursor-pointer hover:bg-[rgba(232,93,93,0.06)]"
+                  style={{ color: 'var(--chalk-ghost)' }}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
                   </svg>
-                  Set Username
+                  Sign out
                 </button>
-              )}
-              <div className="mx-3 my-1 chalk-divider" />
-              <button
-                onClick={() => { setMenuOpen(false); logout(); }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer"
-                style={{ color: 'var(--chalk-ghost)' }}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-                </svg>
-                Sign out
-              </button>
+              </div>
             </div>
           )}
         </div>

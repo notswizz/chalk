@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 const TABS = [
   { key: 'open' as const, label: 'On the Board', color: 'var(--color-green)', bg: 'rgba(93,232,138,0.1)' },
   { key: 'live' as const, label: 'Live Chalk', color: 'var(--color-yellow)', bg: 'rgba(245,217,96,0.1)' },
+  { key: 'settled' as const, label: 'Final', color: 'var(--chalk-dim)', bg: 'rgba(232,228,217,0.08)' },
 ];
 
 const SPORT_FILTERS = [
@@ -23,7 +24,7 @@ const SPORT_FILTERS = [
 
 export default function BetsPage() {
   const { userId, authenticated } = useUser();
-  const [tab, setTab] = useState<'open' | 'live'>('open');
+  const [tab, setTab] = useState<'open' | 'live' | 'settled'>('open');
   const [mineOnly, setMineOnly] = useState(false);
   const [bets, setBets] = useState<Bet[]>([]);
   const [tournamentProps, setTournamentProps] = useState<TournamentProp[]>([]);
@@ -31,15 +32,20 @@ export default function BetsPage() {
   const [gameSports, setGameSports] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const autoSettledGames = useRef<Set<string>>(new Set());
-  const [filterStat, setFilterStat] = useState<string>('all');
-  const [filterGame, setFilterGame] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [showCreateTournament, setShowCreateTournament] = useState(false);
+  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [playerFilter, setPlayerFilter] = useState<string>('all');
+  const [teamSearch, setTeamSearch] = useState('');
+  const [statFilter, setStatFilter] = useState<string>('all');
+  const [potRange, setPotRange] = useState<[number, number]>([0, Infinity]);
+  const [stakeRange, setStakeRange] = useState<[number, number]>([0, Infinity]);
+  const [oddsRange, setOddsRange] = useState<[number, number]>([-Infinity, Infinity]);
 
   const fetchBets = useCallback(async () => {
     setLoading(true);
     try {
-      const status = tab === 'open' ? 'open' : 'matched';
+      const status = tab === 'open' ? 'open' : tab === 'live' ? 'matched' : 'settled_all';
       const res = await fetch(`/api/bets/all?status=${status}`);
       const data = await res.json();
       // Filter out tournament props from regular bets — they're fetched separately
@@ -97,12 +103,15 @@ export default function BetsPage() {
               const state = states[b.gameId];
               return state !== 'post';
             }));
-          } else {
+          } else if (tab === 'live') {
             // Live tab: show matched bets for active/upcoming games
             setBets(loadedBets.filter((b) => {
               const state = states[b.gameId];
               return state === 'in' || state === 'pre';
             }));
+          } else {
+            // Settled tab: show all
+            setBets(loadedBets);
           }
         } catch {
           setBets(loadedBets);
@@ -112,7 +121,7 @@ export default function BetsPage() {
       }
       // Fetch tournament props
       try {
-        const tStatus = tab === 'open' ? 'open' : 'matched';
+        const tStatus = tab === 'open' ? 'open' : tab === 'live' ? 'matched' : 'settled_all';
         const tRes = await fetch(`/api/bets/all?status=${tStatus}&type=tournament`);
         const tData = await tRes.json();
         setTournamentProps(tData.bets ?? []);
@@ -124,31 +133,53 @@ export default function BetsPage() {
 
   useEffect(() => { fetchBets(); }, [fetchBets]);
 
-  // Derive unique stats and games for filter dropdowns
-  const statOptions = [...new Set(bets.map((b) => b.stat).filter(Boolean))].sort();
-  const gameOptions = [...new Set(bets.filter((b) => b.gameTitle).map((b) => b.gameTitle!))].sort();
-
   const showTournamentSection = sportFilter === 'all' || sportFilter === 'tournament';
 
   const filteredBets = bets
     .filter((b) => {
+      if (tab === 'settled') {
+        // Final tab: show all, or filter to mine
+        if (mineOnly) return userId && (b.creatorId === userId || b.takerId === userId);
+        return true;
+      }
       if (mineOnly) return userId && (b.creatorId === userId || b.takerId === userId);
       // When not mine-only, exclude user's own bets
       return !userId || (b.creatorId !== userId && b.takerId !== userId);
     })
-    .filter((b) => filterStat === 'all' || b.stat === filterStat)
-    .filter((b) => filterGame === 'all' || b.gameTitle === filterGame)
     .filter((b) => {
       if (sportFilter === 'all') return true;
       if (sportFilter === 'tournament') return false;
-      // Use game's sport from scores data, fall back to bet's sport field, then default nba
       const betSport = gameSports[b.gameId] || (b as any).sport || 'nba';
       return betSport === sportFilter;
+    })
+    .filter((b) => {
+      if (teamFilter === 'all') return true;
+      return b.awayTeam === teamFilter || b.homeTeam === teamFilter;
+    })
+    .filter((b) => {
+      if (playerFilter === 'all') return true;
+      return b.player === playerFilter;
+    })
+    .filter((b) => statFilter === 'all' || b.stat === statFilter)
+    .filter((b) => {
+      const pot = b.creatorStake + b.takerStake;
+      return pot >= potRange[0] && pot <= potRange[1];
+    })
+    .filter((b) => {
+      const stake = Math.min(b.creatorStake, b.takerStake);
+      return stake >= stakeRange[0] && stake <= stakeRange[1];
+    })
+    .filter((b) => {
+      const decimal = b.creatorStake / b.takerStake;
+      const american = decimal >= 1 ? decimal * 100 : -(100 / decimal);
+      return american >= oddsRange[0] && american <= oddsRange[1];
     });
 
   const showRegularSection = filteredBets.length > 0;
 
-  const filteredTournamentProps = showTournamentSection
+  const hasNonSportFilters = teamFilter !== 'all' || playerFilter !== 'all' || statFilter !== 'all' || potRange[0] > 0 || potRange[1] < Infinity || stakeRange[0] > 0 || stakeRange[1] < Infinity || oddsRange[0] > -Infinity || oddsRange[1] < Infinity;
+
+  const filteredTournamentProps = showTournamentSection && !hasNonSportFilters
     ? tournamentProps
         .filter((p) => {
           if (mineOnly) return userId && (p.creatorId === userId || p.takerId === userId);
@@ -160,200 +191,394 @@ export default function BetsPage() {
 
   const activeTab = TABS.find((t) => t.key === tab)!;
 
-  return (
-    <div className="pinned-header-layout max-w-5xl mx-auto px-4">
-      {/* ─── Pinned Header ─── */}
-      <div className="pinned-header pt-8 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>The Board</h1>
-            {!loading && totalFiltered > 0 && (
-              <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold tabular-nums" style={{ background: activeTab.bg, color: activeTab.color }}>
-                {totalFiltered}
-              </span>
-            )}
-            {authenticated && (
-              <button
-                onClick={() => setMineOnly((v) => !v)}
-                className="px-2.5 py-1 rounded-[4px] text-[10px] font-bold transition-all duration-200 cursor-pointer"
-                style={{
-                  background: mineOnly ? 'rgba(245,217,96,0.12)' : 'transparent',
-                  border: `1px dashed ${mineOnly ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
-                  color: mineOnly ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-                }}
-              >
-                Mine
-              </button>
-            )}
-          </div>
+  // Derive search results: players with headshots + teams with logos
+  const playerMap = new Map<string, { playerId?: string; sport?: string; team?: string }>();
+  const teamMap = new Map<string, string>();
+  for (const b of bets) {
+    if (b.player) playerMap.set(b.player, { playerId: b.playerId, sport: (b as any).sport, team: b.playerTeam });
+    if (b.awayTeam && b.awayTeamLogo) teamMap.set(b.awayTeam, b.awayTeamLogo);
+    if (b.homeTeam && b.homeTeamLogo) teamMap.set(b.homeTeam, b.homeTeamLogo);
+  }
+  const searchLower = teamSearch.toLowerCase();
+  const searchResults = teamSearch.length >= 1 ? [
+    ...[...playerMap.entries()]
+      .filter(([name]) => name.toLowerCase().includes(searchLower))
+      .map(([name, info]) => ({ type: 'player' as const, name, ...info })),
+    ...[...teamMap.entries()]
+      .filter(([name]) => name.toLowerCase().includes(searchLower))
+      .map(([name, logo]) => ({ type: 'team' as const, name, logo })),
+  ] : [];
 
-          {/* Tab switcher */}
-          <div
-            className="flex items-center gap-0.5 p-0.5 rounded-[4px]"
-            style={{ background: 'var(--dust-light)', border: '1px dashed var(--dust-light)' }}
-          >
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => { setTab(t.key); if (t.key === 'live') setMineOnly(true); }}
-                className="px-3.5 py-1.5 rounded-[4px] text-[11px] font-bold transition-all duration-200 cursor-pointer"
-                style={{
-                  background: tab === t.key ? t.bg : 'transparent',
-                  color: tab === t.key ? t.color : 'var(--chalk-ghost)',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+  // Stat options
+  const STAT_OPTIONS = ['points', 'rebounds', 'assists', 'threes'];
+  const STAT_LABELS: Record<string, string> = { points: 'Points', rebounds: 'Rebounds', assists: 'Assists', threes: '3PM' };
+
+  function getHeadshotUrl(playerId?: string, sport?: string) {
+    if (!playerId) return null;
+    const league = sport === 'ncaam' ? 'mens-college-basketball' : 'nba';
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/${league}/players/full/${playerId}.png&w=96&h=70`;
+  }
+
+  const hasActiveFilters = teamFilter !== 'all' || playerFilter !== 'all' || statFilter !== 'all' || potRange[0] > 0 || potRange[1] < Infinity || stakeRange[0] > 0 || stakeRange[1] < Infinity || oddsRange[0] > -Infinity || oddsRange[1] < Infinity;
+
+  function clearAllFilters() {
+    setTeamFilter('all'); setPlayerFilter('all'); setStatFilter('all');
+    setPotRange([0, Infinity]); setStakeRange([0, Infinity]); setOddsRange([-Infinity, Infinity]);
+    setTeamSearch('');
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 pt-8">
+      {/* ─── Header ─── */}
+      <div className="flex flex-col items-center gap-3 mb-6 relative">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>The Board</h1>
+          {!loading && totalFiltered > 0 && (
+            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold tabular-nums" style={{ background: activeTab.bg, color: activeTab.color }}>
+              {totalFiltered}
+            </span>
+          )}
         </div>
 
-        {/* Sport filter tabs */}
-        <div className="flex items-center gap-1.5 mt-3">
-          {SPORT_FILTERS.map((sf) => (
-            <button
-              key={sf.key}
-              onClick={() => setSportFilter(sf.key)}
-              className="px-2.5 py-1 rounded-[4px] text-[10px] font-bold transition-all duration-200 cursor-pointer"
-              style={{
-                background: sportFilter === sf.key ? 'rgba(245,217,96,0.12)' : 'transparent',
-                border: `1px dashed ${sportFilter === sf.key ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
-                color: sportFilter === sf.key ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-              }}
-            >
-              {sf.label}
-            </button>
-          ))}
-          {authenticated && (
+        {/* Tournament prop — top right */}
+        {authenticated && (
+          <div
+            className="absolute right-0 top-0 rounded-[6px] p-[1.5px] transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8, #e85d5d)' }}
+            onClick={() => setShowCreateTournament(true)}
+          >
             <div
-              className="ml-auto relative rounded-[6px] p-[1.5px] transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8, #e85d5d)' }}
-              onClick={() => setShowCreateTournament(true)}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[5px] text-[11px] chalk-header tracking-wide"
+              style={{ background: 'var(--board-dark)', color: 'var(--color-yellow)' }}
             >
-              <div
-                className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[5px] text-[11px] chalk-header tracking-wide"
-                style={{ background: 'var(--board-dark)', color: 'var(--color-yellow)' }}
+              🏆 Tournament Prop
+            </div>
+          </div>
+        )}
+
+        {/* Tab switcher */}
+        <div
+          className="flex items-center gap-1 p-1 rounded-[6px]"
+          style={{ background: 'rgba(232,228,217,0.06)', border: '1px dashed var(--dust-medium)' }}
+        >
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => { setTab(t.key as typeof tab); if (t.key === 'live') setMineOnly(true); }}
+                className="px-4 py-2 rounded-[5px] text-xs tracking-wide transition-all duration-200 cursor-pointer"
+                style={{
+                  fontFamily: 'var(--font-chalk-header)',
+                  background: active ? t.bg : 'transparent',
+                  color: active ? t.color : 'var(--chalk-ghost)',
+                  border: active ? `1px dashed ${t.color}40` : '1px dashed transparent',
+                  fontWeight: active ? 800 : 600,
+                }}
               >
-                🏆 Tournament Prop
-              </div>
+                {t.key === 'live' && active && (
+                  <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 animate-pulse" style={{ background: t.color }} />
+                )}
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── Main layout: board + sidebar ─── */}
+      <div className="flex gap-4">
+        {/* Board content */}
+        <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="shimmer rounded-[4px] h-[200px]" />
+              ))}
+            </div>
+          ) : totalFiltered === 0 ? (
+            <EmptyState tab={tab} mineOnly={mineOnly} />
+          ) : sportFilter === 'all' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
+              {[
+                ...filteredBets.map((b) => ({ kind: 'bet' as const, item: b, createdAt: b.createdAt })),
+                ...filteredTournamentProps.map((p) => ({ kind: 'tournament' as const, item: p, createdAt: p.createdAt })),
+              ]
+                .sort((a, b) => b.createdAt - a.createdAt)
+                .map((entry) =>
+                  entry.kind === 'bet' ? (
+                    <BetCard
+                      key={entry.item.id}
+                      bet={entry.item}
+                      onUpdate={fetchBets}
+                      showGame
+                      gameOver={gameStates[entry.item.gameId] === 'post' || !gameStates[entry.item.gameId]}
+                    />
+                  ) : (
+                    <TournamentPropCard key={entry.item.id} prop={entry.item} onUpdate={fetchBets} />
+                  )
+                )}
+            </div>
+          ) : sportFilter === 'tournament' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
+              {filteredTournamentProps.map((prop) => (
+                <TournamentPropCard key={prop.id} prop={prop} onUpdate={fetchBets} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
+              {filteredBets.map((bet) => (
+                <BetCard
+                  key={bet.id}
+                  bet={bet}
+                  onUpdate={fetchBets}
+                  showGame
+                  gameOver={gameStates[bet.gameId] === 'post' || !gameStates[bet.gameId]}
+                />
+              ))}
             </div>
           )}
         </div>
 
-        {/* Filters */}
-        {bets.length > 0 && (
-          <div className="flex items-center gap-2 mt-3">
-            {statOptions.length >= 1 && (
-              <select
-                value={filterStat}
-                onChange={(e) => setFilterStat(e.target.value)}
-                className="px-2.5 py-1.5 rounded-[4px] text-[11px] chalk-header cursor-pointer outline-none"
-                style={{
-                  background: filterStat !== 'all' ? 'rgba(245,217,96,0.12)' : 'var(--dust-light)',
-                  border: `1px dashed ${filterStat !== 'all' ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
-                  color: filterStat !== 'all' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-                }}
-              >
-                <option value="all" style={{ background: 'var(--board-dark)' }}>All Stats</option>
-                {statOptions.map((s) => (
-                  <option key={s} value={s} style={{ background: 'var(--board-dark)' }}>
-                    {{ points: 'Points', rebounds: 'Rebounds', assists: 'Assists', threes: '3-Pointers' }[s] || s}
-                  </option>
+        {/* ─── Right Sidebar ─── */}
+        <div className="hidden md:block w-64 flex-shrink-0">
+          <div className="sticky top-20 space-y-5">
+            {/* Sport filters */}
+            <div>
+              <div className="text-[11px] uppercase tracking-widest mb-2 chalk-header" style={{ color: 'var(--chalk-ghost)' }}>Sport</div>
+              <div className="flex flex-wrap gap-1.5">
+                {SPORT_FILTERS.map((sf) => (
+                  <button
+                    key={sf.key}
+                    onClick={() => setSportFilter(sf.key)}
+                    className="px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all duration-200 cursor-pointer"
+                    style={{
+                      background: sportFilter === sf.key ? 'rgba(245,217,96,0.12)' : 'transparent',
+                      border: `1px dashed ${sportFilter === sf.key ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
+                      color: sportFilter === sf.key ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                    }}
+                  >
+                    {sf.label}
+                  </button>
                 ))}
-              </select>
-            )}
-            {gameOptions.length >= 1 && (
-              <select
-                value={filterGame}
-                onChange={(e) => setFilterGame(e.target.value)}
-                className="px-2.5 py-1.5 rounded-[4px] text-[11px] chalk-header cursor-pointer outline-none truncate max-w-[200px]"
-                style={{
-                  background: filterGame !== 'all' ? 'rgba(245,217,96,0.12)' : 'var(--dust-light)',
-                  border: `1px dashed ${filterGame !== 'all' ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
-                  color: filterGame !== 'all' ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
-                }}
-              >
-                <option value="all" style={{ background: 'var(--board-dark)' }}>All Games</option>
-                {gameOptions.map((g) => (
-                  <option key={g} value={g} style={{ background: 'var(--board-dark)' }}>{g}</option>
-                ))}
-              </select>
-            )}
-            {(filterStat !== 'all' || filterGame !== 'all') && (
+              </div>
+            </div>
+
+            {/* Mine toggle */}
+            {authenticated && (
               <button
-                onClick={() => { setFilterStat('all'); setFilterGame('all'); }}
-                className="text-[10px] px-2 py-1 rounded-[4px] cursor-pointer transition-all"
-                style={{ color: 'var(--chalk-ghost)', border: '1px dashed var(--dust-medium)' }}
+                onClick={() => setMineOnly((v) => !v)}
+                className="w-full px-4 py-2.5 rounded-[5px] text-sm tracking-wide transition-all duration-200 cursor-pointer"
+                style={{
+                  fontFamily: 'var(--font-chalk-header)',
+                  background: mineOnly ? 'rgba(93,155,232,0.12)' : 'transparent',
+                  border: mineOnly ? '1px dashed rgba(93,155,232,0.4)' : '1px dashed var(--dust-medium)',
+                  color: mineOnly ? 'var(--color-blue)' : 'var(--chalk-ghost)',
+                  fontWeight: mineOnly ? 800 : 600,
+                }}
               >
-                Clear
+                My Props
               </button>
             )}
-          </div>
-        )}
-      </div>
 
-      {/* ─── Scrollable Content ─── */}
-      <div className="pinned-scroll scrollbar-hide">
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="shimmer rounded-[4px] h-[200px]" />
-            ))}
-          </div>
-        ) : totalFiltered === 0 ? (
-          <EmptyState tab={tab} mineOnly={mineOnly} />
-        ) : sportFilter === 'all' ? (
-          /* All filter: merge everything into one grid sorted by createdAt */
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
-            {[
-              ...filteredBets.map((b) => ({ kind: 'bet' as const, item: b, createdAt: b.createdAt })),
-              ...filteredTournamentProps.map((p) => ({ kind: 'tournament' as const, item: p, createdAt: p.createdAt })),
-            ]
-              .sort((a, b) => b.createdAt - a.createdAt)
-              .map((entry) =>
-                entry.kind === 'bet' ? (
-                  <BetCard
-                    key={entry.item.id}
-                    bet={entry.item}
-                    onUpdate={fetchBets}
-                    showGame
-                    gameOver={gameStates[entry.item.gameId] === 'post' || !gameStates[entry.item.gameId]}
-                  />
-                ) : (
-                  <TournamentPropCard key={entry.item.id} prop={entry.item} onUpdate={fetchBets} />
-                )
-              )}
-          </div>
-        ) : sportFilter === 'tournament' ? (
-          /* Tournament only */
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
-            {filteredTournamentProps.map((prop) => (
-              <TournamentPropCard key={prop.id} prop={prop} onUpdate={fetchBets} />
-            ))}
-          </div>
-        ) : (
-          /* NBA or NCAA player props only */
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 fade-up">
-            {filteredBets.map((bet) => (
-              <BetCard
-                key={bet.id}
-                bet={bet}
-                onUpdate={fetchBets}
-                showGame
-                gameOver={gameStates[bet.gameId] === 'post' || !gameStates[bet.gameId]}
+            {/* Clear all */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="w-full px-4 py-2 rounded-[5px] text-xs chalk-header tracking-wide cursor-pointer transition-all"
+                style={{ border: '1px dashed rgba(232,93,93,0.3)', color: 'var(--color-red)' }}
+              >
+                Clear All Filters
+              </button>
+            )}
+
+            {/* Search bar */}
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 z-10" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--chalk-ghost)" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={teamSearch}
+                onChange={(e) => setTeamSearch(e.target.value)}
+                placeholder="Search teams or players..."
+                className="w-full pl-9 pr-3 py-2.5 rounded-[5px] text-sm outline-none"
+                style={{
+                  background: 'rgba(232,228,217,0.04)',
+                  border: '1px dashed var(--dust-medium)',
+                  color: 'var(--chalk-white)',
+                  fontFamily: 'var(--font-chalk-body)',
+                }}
               />
-            ))}
-          </div>
-        )}
+              {/* Search dropdown */}
+              {searchResults.length > 0 && (
+                <div
+                  className="absolute top-full left-0 right-0 mt-1 rounded-[5px] overflow-hidden z-20 max-h-64 overflow-y-auto scrollbar-hide"
+                  style={{ background: 'var(--board-dark)', border: '1px dashed var(--dust-medium)' }}
+                >
+                  {searchResults.map((r) => (
+                    <button
+                      key={`${r.type}-${r.name}`}
+                      onClick={() => {
+                        if (r.type === 'player') { setPlayerFilter(r.name); setTeamFilter('all'); }
+                        else { setTeamFilter(r.name); setPlayerFilter('all'); }
+                        setTeamSearch('');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm font-bold transition-all cursor-pointer flex items-center gap-2.5 hover:opacity-80"
+                      style={{ color: 'var(--chalk-white)', borderBottom: '1px dashed rgba(232,228,217,0.06)' }}
+                    >
+                      {r.type === 'player' ? (
+                        <>
+                          {(() => {
+                            const url = getHeadshotUrl(r.playerId, r.sport);
+                            return url ? (
+                              <img src={url} alt={r.name} className="w-8 h-6 object-cover rounded-[3px]" style={{ background: 'rgba(232,228,217,0.06)' }} />
+                            ) : (
+                              <div className="w-8 h-6 rounded-[3px] flex items-center justify-center" style={{ background: 'rgba(232,228,217,0.06)' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--chalk-ghost)" strokeWidth="2">
+                                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+                                </svg>
+                              </div>
+                            );
+                          })()}
+                          <div>
+                            <div>{r.name}</div>
+                            {r.team && <div className="text-[10px]" style={{ color: 'var(--chalk-ghost)' }}>{r.team}</div>}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <img src={(r as any).logo} alt={r.name} className="w-6 h-6 object-contain" />
+                          {r.name}
+                        </>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-        {/* Create Tournament Prop modal */}
-        {showCreateTournament && (
-          <CreateTournamentProp
-            onClose={() => setShowCreateTournament(false)}
-            onCreated={() => { setShowCreateTournament(false); fetchBets(); }}
-          />
-        )}
+            {/* Active filter chip */}
+            {(teamFilter !== 'all' || playerFilter !== 'all') && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-[5px] text-xs font-bold" style={{ background: 'rgba(245,217,96,0.08)', border: '1px dashed rgba(245,217,96,0.2)', color: 'var(--color-yellow)' }}>
+                <span className="truncate">{teamFilter !== 'all' ? teamFilter : playerFilter}</span>
+                <button
+                  onClick={() => { setTeamFilter('all'); setPlayerFilter('all'); }}
+                  className="ml-auto flex-shrink-0 cursor-pointer"
+                  style={{ color: 'var(--chalk-ghost)' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+            )}
+
+            {/* Stat filter */}
+            <div>
+              <div className="text-[11px] uppercase tracking-widest mb-2 chalk-header" style={{ color: 'var(--chalk-ghost)' }}>Stat</div>
+              <div className="flex flex-wrap gap-1.5">
+                {STAT_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setStatFilter(statFilter === s ? 'all' : s)}
+                    className="px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all cursor-pointer"
+                    style={{
+                      background: statFilter === s ? 'rgba(245,217,96,0.12)' : 'transparent',
+                      border: `1px dashed ${statFilter === s ? 'rgba(245,217,96,0.35)' : 'var(--dust-medium)'}`,
+                      color: statFilter === s ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                    }}
+                  >
+                    {STAT_LABELS[s] || s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Range filters */}
+            <div className="space-y-4">
+              {/* Pot range */}
+              <div>
+                <div className="text-[11px] uppercase tracking-widest mb-1.5 chalk-header" style={{ color: 'var(--chalk-ghost)' }}>Pot Size</div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={potRange[0] || ''}
+                    onChange={(e) => setPotRange([Number(e.target.value) || 0, potRange[1]])}
+                    className="w-full px-3 py-2 rounded-[4px] text-xs outline-none tabular-nums"
+                    style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                  />
+                  <span className="text-xs" style={{ color: 'var(--chalk-ghost)' }}>–</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={potRange[1] === Infinity ? '' : potRange[1]}
+                    onChange={(e) => setPotRange([potRange[0], Number(e.target.value) || Infinity])}
+                    className="w-full px-3 py-2 rounded-[4px] text-xs outline-none tabular-nums"
+                    style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Stake range */}
+              <div>
+                <div className="text-[11px] uppercase tracking-widest mb-1.5 chalk-header" style={{ color: 'var(--chalk-ghost)' }}>Stake</div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={stakeRange[0] || ''}
+                    onChange={(e) => setStakeRange([Number(e.target.value) || 0, stakeRange[1]])}
+                    className="w-full px-3 py-2 rounded-[4px] text-xs outline-none tabular-nums"
+                    style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                  />
+                  <span className="text-xs" style={{ color: 'var(--chalk-ghost)' }}>–</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={stakeRange[1] === Infinity ? '' : stakeRange[1]}
+                    onChange={(e) => setStakeRange([stakeRange[0], Number(e.target.value) || Infinity])}
+                    className="w-full px-3 py-2 rounded-[4px] text-xs outline-none tabular-nums"
+                    style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Odds range */}
+              <div>
+                <div className="text-[11px] uppercase tracking-widest mb-1.5 chalk-header" style={{ color: 'var(--chalk-ghost)' }}>Odds</div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    placeholder="−500"
+                    value={oddsRange[0] === -Infinity ? '' : oddsRange[0]}
+                    onChange={(e) => setOddsRange([Number(e.target.value) || -Infinity, oddsRange[1]])}
+                    className="w-full px-3 py-2 rounded-[4px] text-xs outline-none tabular-nums"
+                    style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                  />
+                  <span className="text-xs" style={{ color: 'var(--chalk-ghost)' }}>–</span>
+                  <input
+                    type="number"
+                    placeholder="+500"
+                    value={oddsRange[1] === Infinity ? '' : oddsRange[1]}
+                    onChange={(e) => setOddsRange([oddsRange[0], Number(e.target.value) || Infinity])}
+                    className="w-full px-3 py-2 rounded-[4px] text-xs outline-none tabular-nums"
+                    style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed var(--dust-medium)', color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
+
+      {/* Create Tournament Prop modal */}
+      {showCreateTournament && (
+        <CreateTournamentProp
+          onClose={() => setShowCreateTournament(false)}
+          onCreated={() => { setShowCreateTournament(false); fetchBets(); }}
+        />
+      )}
     </div>
   );
 }

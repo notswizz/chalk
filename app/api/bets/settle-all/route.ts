@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { firestore } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, runTransaction } from 'firebase/firestore';
-import { fetchPlayerBoxScore, findPlayerStat } from '@/lib/espn';
+import { fetchPlayerBoxScore, findPlayerStat, fetchGameById } from '@/lib/espn';
 import { trackChallenge } from '@/lib/track-challenge';
 
 /**
@@ -32,10 +32,21 @@ export async function GET(req: Request) {
     );
     const openSnap = await getDocs(openQuery);
 
-    // 3. Collect unique game IDs
+    // 3. Collect unique game IDs and their sport
     const gameIds = new Set<string>();
-    for (const d of matchedSnap.docs) gameIds.add(d.data().gameId);
-    for (const d of openSnap.docs) gameIds.add(d.data().gameId);
+    const gameSport = new Map<string, string>();
+    for (const d of matchedSnap.docs) {
+      const data = d.data();
+      if (!data.gameId || data.type === 'tournament') continue;
+      gameIds.add(data.gameId);
+      if (data.sport) gameSport.set(data.gameId, data.sport);
+    }
+    for (const d of openSnap.docs) {
+      const data = d.data();
+      if (!data.gameId || data.type === 'tournament') continue;
+      gameIds.add(data.gameId);
+      if (data.sport) gameSport.set(data.gameId, data.sport);
+    }
 
     if (gameIds.size === 0) {
       return NextResponse.json({ message: 'No pending bets', settled: 0, cancelled: 0, noStat: 0, games: 0 });
@@ -52,9 +63,11 @@ export async function GET(req: Request) {
       let cancelled = 0;
       let noStat = 0;
 
-      // Fetch box score — if ESPN returns data, the game is finished
-      const players = await fetchPlayerBoxScore(gameId);
-      const gameFinished = players.length > 0;
+      // Check if game is actually finished via ESPN game state
+      const sport = gameSport.get(gameId);
+      const gameInfo = await fetchGameById(gameId);
+      const gameFinished = gameInfo?.state === 'post';
+      const players = gameFinished ? await fetchPlayerBoxScore(gameId, sport) : [];
 
       if (gameFinished) {
         // Cancel open bets for finished games

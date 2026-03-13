@@ -51,6 +51,12 @@ function formatAmerican(val: number): string {
   return val > 0 ? `+${val}` : `${val}`;
 }
 
+function getPlayerHeadshot(playerId?: string, sport?: string): string | null {
+  if (!playerId) return null;
+  const league = sport === 'ncaam' ? 'mens-college-basketball' : 'nba';
+  return `https://a.espncdn.com/combiner/i?img=/i/headshots/${league}/players/full/${playerId}.png&w=96&h=70`;
+}
+
 export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameLive, onClose, onCreated }: Props) {
   const { getAccessToken, profile } = useUser();
   const { price } = useChalkPrice();
@@ -68,7 +74,6 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
   const [direction, setDirection] = useState<'over' | 'under'>('over');
   const [stake, setStake] = useState('');
   const [oddsInput, setOddsInput] = useState('-110');
-  const [oddsMode, setOddsMode] = useState<'american' | 'percent'>('american');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -146,17 +151,10 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
   const stakeNum = Number(stake) || 0;
   const oddsNum = Number(oddsInput) || 0;
 
-  // Compute validity and multiplier based on mode
-  const isValidOdds = oddsMode === 'american'
-    ? oddsNum !== 0 && (oddsNum >= 100 || oddsNum <= -100)
-    : oddsNum > 0 && oddsNum < 100;
-  const multiplier = !isValidOdds ? 1
-    : oddsMode === 'american' ? americanToMultiplier(oddsNum)
-    : (100 - oddsNum) / oddsNum; // percent = implied win probability → multiplier
-  const americanDisplay = oddsMode === 'american' ? oddsNum
-    : multiplier >= 1 ? Math.round(multiplier * 100) * -1 : Math.round(100 / multiplier);
-  const percentDisplay = oddsMode === 'percent' ? oddsNum
-    : isValidOdds ? Math.round(100 / (1 + multiplier)) : 0;
+  // Compute validity and multiplier
+  const isValidOdds = oddsNum !== 0 && (oddsNum >= 100 || oddsNum <= -100);
+  const multiplier = !isValidOdds ? 1 : americanToMultiplier(oddsNum);
+  const americanDisplay = oddsNum;
   const takerStake = Math.round(stakeNum * multiplier);
   const payout = stakeNum + takerStake;
 
@@ -167,7 +165,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
     if (!player.trim()) { setError('Enter a player name'); return; }
     if (!target || Number(target) <= 0) { setError('Enter a valid target'); return; }
     if (stakeNum <= 0) { setError('Enter a valid stake'); return; }
-    if (!isValidOdds) { setError(oddsMode === 'american' ? 'Odds must be +100 or higher, or -100 or lower' : 'Win % must be between 1 and 99'); return; }
+    if (!isValidOdds) { setError('Odds must be +100 or higher, or -100 or lower'); return; }
     if (profile && stakeNum > profile.coins) { setError('Insufficient chalk'); return; }
 
     setSubmitting(true);
@@ -234,16 +232,32 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
             {/* Player */}
             <Field label="Player">
               <div className="relative">
-                <input
-                  ref={playerInputRef}
-                  type="text"
-                  value={player}
-                  onChange={(e) => { setPlayer(e.target.value); setPlayerId(''); setPlayerTeam(''); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder={hasPlayers ? 'Search player...' : 'e.g. LeBron James'}
-                  className="input-field w-full"
-                  autoComplete="off"
-                />
+                <div className="flex items-center gap-2">
+                  {playerId && (() => {
+                    const hs = getPlayerHeadshot(playerId, sport);
+                    return hs ? (
+                      <div className="flex-shrink-0 rounded-full p-[1px]" style={{ background: 'linear-gradient(135deg, rgba(232,228,217,0.25), rgba(232,228,217,0.08))' }}>
+                        <img
+                          src={hs}
+                          alt=""
+                          className="w-9 h-9 rounded-full object-cover"
+                          style={{ background: 'rgba(232,228,217,0.06)' }}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).parentElement!.style.display = 'none'; }}
+                        />
+                      </div>
+                    ) : null;
+                  })()}
+                  <input
+                    ref={playerInputRef}
+                    type="text"
+                    value={player}
+                    onChange={(e) => { setPlayer(e.target.value); setPlayerId(''); setPlayerTeam(''); setShowSuggestions(true); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    placeholder={hasPlayers ? 'Search player...' : 'e.g. LeBron James'}
+                    className="input-field w-full"
+                    autoComplete="off"
+                  />
+                </div>
                 {showSuggestions && filteredByTeam.length > 0 && (
                   <div
                     ref={suggestionsRef}
@@ -261,35 +275,53 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
                             {team}
                           </span>
                         </div>
-                        {players.map((p) => (
-                          <button
-                            key={`${team}-${p.name}`}
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 cursor-pointer"
-                            style={{ color: 'var(--chalk-white)' }}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setPlayer(p.name);
-                              setPlayerId(p.id);
-                              setPlayerTeam(team);
-                              setShowSuggestions(false);
-                            }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--dust-light)'; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                          >
-                            {p.jersey && (
-                              <span className="text-[10px] tabular-nums w-5 text-center flex-shrink-0" style={{ color: 'var(--chalk-ghost)' }}>
-                                #{p.jersey}
-                              </span>
-                            )}
-                            <span className="truncate">{p.name}</span>
-                            {p.position && (
-                              <span className="text-[10px] flex-shrink-0 ml-auto" style={{ color: 'var(--chalk-ghost)' }}>
-                                {p.position}
-                              </span>
-                            )}
-                          </button>
-                        ))}
+                        {players.map((p) => {
+                          const headshot = getPlayerHeadshot(p.id, sport);
+                          return (
+                            <button
+                              key={`${team}-${p.name}`}
+                              type="button"
+                              className="w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 cursor-pointer"
+                              style={{ color: 'var(--chalk-white)' }}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setPlayer(p.name);
+                                setPlayerId(p.id);
+                                setPlayerTeam(team);
+                                setShowSuggestions(false);
+                              }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--dust-light)'; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                              {headshot ? (
+                                <img
+                                  src={headshot}
+                                  alt=""
+                                  className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                                  style={{ background: 'rgba(232,228,217,0.06)' }}
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(232,228,217,0.06)' }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--chalk-ghost)' }}>
+                                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+                                  </svg>
+                                </div>
+                              )}
+                              <span className="truncate">{p.name}</span>
+                              {p.jersey && (
+                                <span className="text-[10px] tabular-nums flex-shrink-0" style={{ color: 'var(--chalk-ghost)' }}>
+                                  #{p.jersey}
+                                </span>
+                              )}
+                              {p.position && (
+                                <span className="text-[10px] flex-shrink-0 ml-auto" style={{ color: 'var(--chalk-ghost)' }}>
+                                  {p.position}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
@@ -407,45 +439,13 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
                 />
               </Field>
               <Field label="Odds">
-                <div className="flex items-center gap-0 rounded-[4px] overflow-hidden" style={{ border: '1px dashed var(--dust-medium)', background: 'var(--dust-light)' }}>
-                  {/* Mode toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (oddsMode === 'american') {
-                        // Convert current american to percent
-                        const pct = isValidOdds ? Math.round(100 / (1 + multiplier)) : 50;
-                        setOddsMode('percent');
-                        setOddsInput(String(pct));
-                      } else {
-                        // Convert current percent to american
-                        const am = isValidOdds
-                          ? multiplier >= 1 ? Math.round(multiplier * 100) * -1 : Math.round(100 / multiplier)
-                          : -110;
-                        setOddsMode('american');
-                        setOddsInput(String(am));
-                      }
-                    }}
-                    className="flex-shrink-0 px-2 py-2 text-[9px] chalk-header tracking-wider cursor-pointer transition-all"
-                    style={{ color: 'var(--color-yellow)', background: 'rgba(245,217,96,0.06)' }}
-                    title={`Switch to ${oddsMode === 'american' ? 'percentage' : 'American'}`}
-                  >
-                    {oddsMode === 'american' ? 'US' : '%'}
-                  </button>
-                  <input
-                    type="number"
-                    value={oddsInput}
-                    onChange={(e) => setOddsInput(e.target.value)}
-                    placeholder={oddsMode === 'american' ? '-110' : '50'}
-                    className="flex-1 min-w-0 px-2 py-2 bg-transparent text-sm outline-none"
-                    style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)', border: 'none' }}
-                  />
-                </div>
-                {isValidOdds && (
-                  <div className="text-[9px] mt-1 tabular-nums" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-                    {oddsMode === 'american' ? `${percentDisplay}% implied` : `${formatAmerican(americanDisplay)} american`}
-                  </div>
-                )}
+                <input
+                  type="number"
+                  value={oddsInput}
+                  onChange={(e) => setOddsInput(e.target.value)}
+                  placeholder="-110"
+                  className="input-field"
+                />
               </Field>
             </div>
 

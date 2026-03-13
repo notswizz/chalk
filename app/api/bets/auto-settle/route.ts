@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server';
 import { firestore } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, runTransaction } from 'firebase/firestore';
-import { fetchPlayerBoxScore, findPlayerStat } from '@/lib/espn';
+import { fetchPlayerBoxScore, findPlayerStat, fetchGameById } from '@/lib/espn';
 
 export async function POST(req: Request) {
   try {
-    const { gameId } = await req.json();
+    const { gameId, sport } = await req.json();
 
     if (!gameId) {
       return NextResponse.json({ error: 'Missing gameId' }, { status: 400 });
+    }
+
+    // Check if game is actually finished
+    const gameInfo = await fetchGameById(gameId);
+    if (!gameInfo || gameInfo.state !== 'post') {
+      return NextResponse.json({ settled: 0, cancelled: 0, message: 'Game not finished' });
     }
 
     // Cancel open (unmatched) bets for this game — refund creator
@@ -60,7 +66,8 @@ export async function POST(req: Request) {
     }
 
     // Fetch box score from ESPN once for all bets in this game
-    const players = await fetchPlayerBoxScore(gameId);
+    const betSport = sport || betsSnap.docs[0]?.data()?.sport;
+    const players = await fetchPlayerBoxScore(gameId, betSport);
 
     let settledCount = 0;
     let noStatCount = 0;

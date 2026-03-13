@@ -10,6 +10,25 @@ import { TeamLogo } from '@/components/TeamLogo';
 import { useSport, setSport } from '@/components/SportSelector';
 import { useUser } from '@/hooks/useUser';
 
+interface RailBet {
+  id: string;
+  gameId: string;
+  player: string;
+  playerId?: string;
+  stat: string;
+  target: number;
+  direction: string;
+  creatorStake: number;
+  takerStake: number;
+  status: string;
+  creatorName: string;
+  gameTitle?: string;
+  sport?: string;
+  createdAt: number;
+}
+
+const RAIL_STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', assists: 'AST', threes: '3PM' };
+
 export const dynamic = 'force-dynamic';
 
 interface Clip {
@@ -34,6 +53,7 @@ export default function HomePage() {
   const [totalChalk, setTotalChalk] = useState(0);
   const [propCount, setPropCount] = useState(0);
   const [clips, setClips] = useState<Clip[]>([]);
+  const [railBets, setRailBets] = useState<RailBet[]>([]);
 
   const fetchGames = useCallback(async () => {
     try {
@@ -98,6 +118,10 @@ export default function HomePage() {
       .then((r) => r.json())
       .then((d) => setClips((d.clips ?? []).slice(0, 10)))
       .catch(() => {});
+    fetch('/api/bets/all?status=open')
+      .then((r) => r.json())
+      .then((d) => setRailBets((d.bets ?? []).filter((b: RailBet & { type?: string }) => b.type !== 'tournament').slice(0, 10)))
+      .catch(() => {});
   }, []);
 
   const favoriteAbbrs = getFavorites().map((f) => f.abbreviation);
@@ -141,10 +165,7 @@ export default function HomePage() {
     ? upcomingGames.filter((g) => g.id !== featuredGame.id)
     : upcomingGames;
 
-  // Always show exactly CLIPS_PER_RAIL per side for consistent height
-  const CLIPS_PER_RAIL = 3;
-  const leftClips = clips.slice(0, CLIPS_PER_RAIL);
-  const rightClips = clips.slice(CLIPS_PER_RAIL, CLIPS_PER_RAIL * 2);
+  const leftClips = clips.slice(0, 5);
 
   return (
     <div className="home-with-clips">
@@ -449,12 +470,13 @@ export default function HomePage() {
       </div>
     </div>
 
-      {/* Right clip rail */}
-      {rightClips.length > 0 && (
+      {/* Right bets rail */}
+      {railBets.length > 0 && (
         <div className="clip-rail clip-rail-right">
+          <div className="clip-rail-header">RECENT PROPS</div>
           <div className="clip-rail-scroll">
-            {rightClips.map((clip) => (
-              <ClipCard key={clip.id} clip={clip} />
+            {railBets.map((bet) => (
+              <BetRailCard key={bet.id} bet={bet} />
             ))}
           </div>
         </div>
@@ -495,6 +517,63 @@ function ClipCard({ clip }: { clip: Clip }) {
       <div className="clip-rail-info">
         <span className="clip-rail-title">{clip.clipTitle || 'Untitled Clip'}</span>
         <span className="clip-rail-meta">{clip.userName || 'User'}</span>
+      </div>
+    </Link>
+  );
+}
+
+/* ─── Bet Card for right rail ─── */
+function BetRailCard({ bet }: { bet: RailBet }) {
+  const statLabel = RAIL_STAT_LABELS[bet.stat] || bet.stat;
+  const takerDir = bet.direction === 'over' ? 'under' : 'over';
+  const dirColor = takerDir === 'over' ? 'var(--color-green)' : 'var(--color-red)';
+  const dirBg = takerDir === 'over' ? 'rgba(93,232,138,0.08)' : 'rgba(232,93,93,0.08)';
+  const headshot = bet.playerId
+    ? `https://a.espncdn.com/combiner/i?img=/i/headshots/${bet.sport === 'ncaam' ? 'mens-college-basketball' : 'nba'}/players/full/${bet.playerId}.png&w=96&h=70`
+    : null;
+
+  return (
+    <Link href={`/game/${bet.gameId}`} className="bet-rail-card group">
+      {/* Headshot */}
+      <div className="flex items-center justify-center pt-4 pb-2">
+        {headshot ? (
+          <div className="rounded-full p-[1.5px]" style={{ background: 'linear-gradient(135deg, rgba(232,228,217,0.2), rgba(232,228,217,0.06))' }}>
+            <img
+              src={headshot}
+              alt=""
+              className="w-14 h-14 rounded-full object-cover"
+              style={{ background: 'rgba(232,228,217,0.06)' }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
+        ) : (
+          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(232,228,217,0.06)', border: '1.5px dashed rgba(232,228,217,0.15)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--chalk-ghost)' }}>
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Player name */}
+      <div className="text-center px-3">
+        <div className="text-sm chalk-header truncate" style={{ color: 'var(--chalk-white)' }}>{bet.player}</div>
+      </div>
+
+      {/* Direction + target + stat */}
+      <div className="flex items-center justify-center gap-2 px-3 py-3">
+        <span
+          className="px-2 py-0.5 rounded-[3px] text-xs font-extrabold chalk-header"
+          style={{ background: dirBg, color: dirColor }}
+        >
+          {takerDir.toUpperCase()}
+        </span>
+        <span className="text-lg tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>
+          {bet.target}
+        </span>
+        <span className="text-xs" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+          {statLabel}
+        </span>
       </div>
     </Link>
   );

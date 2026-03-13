@@ -6,6 +6,7 @@ interface UserStats {
   userId: string;
   displayName: string;
   avatarUrl: string;
+  challengePoints: number;
   wins: number;
   losses: number;
   pushes: number;
@@ -137,6 +138,14 @@ export async function GET() {
       });
     }
 
+    // Query challenges collection for points
+    const challengesSnap = await getDocs(collection(firestore, 'challenges'));
+    const challengePointsMap = new Map<string, number>();
+    for (const doc of challengesSnap.docs) {
+      const data = doc.data();
+      challengePointsMap.set(doc.id, data.challengePoints ?? 0);
+    }
+
     // Build final array
     const leaderboard: UserStats[] = [];
     for (const [userId, stats] of statsMap) {
@@ -146,6 +155,7 @@ export async function GET() {
         userId,
         displayName: user?.displayName || 'Anonymous',
         avatarUrl: user?.avatarUrl || '',
+        challengePoints: challengePointsMap.get(userId) ?? 0,
         wins: stats.wins,
         losses: stats.losses,
         pushes: stats.pushes,
@@ -160,13 +170,16 @@ export async function GET() {
       });
     }
 
+    // Filter out anonymous (chalkbot) entries
+    const filtered = leaderboard.filter((e) => e.displayName !== 'Anonymous');
+
     // Default sort: by total profit descending
-    leaderboard.sort((a, b) => b.totalProfit - a.totalProfit);
+    filtered.sort((a, b) => b.totalProfit - a.totalProfit);
 
     // Cache result
-    cachedResult = { data: leaderboard, timestamp: Date.now() };
+    cachedResult = { data: filtered, timestamp: Date.now() };
 
-    return NextResponse.json({ leaderboard });
+    return NextResponse.json({ leaderboard: filtered });
   } catch (e: unknown) {
     console.error('Leaderboard error:', e);
     return NextResponse.json({ error: 'Failed to load leaderboard' }, { status: 500 });

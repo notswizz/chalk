@@ -8,7 +8,7 @@ import { ActivityModal } from '@/components/ActivityModal';
 import { InfoModal } from '@/components/InfoModal';
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Games', match: (p: string) => p === '/' },
+  { href: '/games', label: 'Games', match: (p: string) => p === '/games' },
   { href: '/bets', label: 'Board', match: (p: string) => p === '/bets' },
   { href: '/leaderboard', label: 'Rankings', match: (p: string) => p === '/leaderboard' },
   { href: '/clips', label: 'Clips', match: (p: string) => p === '/clips' || p.startsWith('/clip/') },

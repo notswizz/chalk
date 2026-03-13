@@ -6,7 +6,7 @@ import { LoginButton } from '@/components/auth/LoginButton';
 
 const NAV_ITEMS = [
   {
-    href: '/',
+    href: '/games',
     label: 'Games',
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -35,6 +35,18 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 safe-bottom">
       <div style={{ background: 'var(--board-dark)', borderTop: '1px dashed var(--dust-light)' }}>
         <div className="max-w-lg mx-auto flex items-center">
+          <Link
+            href="/"
+            className="flex-1 flex flex-col items-center gap-1 py-3 transition-all duration-200"
+            style={{ color: pathname === '/' ? 'var(--color-yellow)' : 'var(--chalk-ghost)' }}
+          >
+            <span className="text-sm font-bold tracking-wide" style={{ fontFamily: 'var(--font-chalk-header)' }}>
+              CHALK
+            </span>
+            {pathname === '/' && (
+              <span className="w-1 h-1 rounded-full" style={{ background: 'var(--color-yellow)' }} />
+            )}
+          </Link>
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             return (

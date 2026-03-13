@@ -9,6 +9,7 @@ interface LeaderboardEntry {
   userId: string;
   displayName: string;
   avatarUrl: string;
+  challengePoints: number;
   wins: number;
   losses: number;
   pushes: number;
@@ -22,7 +23,7 @@ interface LeaderboardEntry {
   pendingChalk: number;
 }
 
-type SortKey = 'totalProfit' | 'percentGain' | 'volume' | 'pendingChalk' | 'openBets' | 'liveBets';
+type SortKey = 'challengePoints' | 'totalProfit' | 'percentGain' | 'volume' | 'pendingChalk' | 'openBets' | 'liveBets';
 
 export default function LeaderboardPage() {
   const { userId, ready } = useUser();
@@ -58,12 +59,11 @@ export default function LeaderboardPage() {
   const totalLive = entries.reduce((s, e) => s + e.liveBets, 0);
 
   const columns: { key: SortKey; label: string; short: string }[] = [
+    { key: 'challengePoints', label: 'Points', short: 'Points' },
     { key: 'totalProfit', label: 'Profit', short: 'Profit' },
     { key: 'percentGain', label: 'ROI%', short: 'ROI%' },
     { key: 'volume', label: 'Volume', short: 'Vol' },
     { key: 'pendingChalk', label: 'At Risk', short: 'Risk' },
-    { key: 'openBets', label: 'Open', short: 'Open' },
-    { key: 'liveBets', label: 'Live', short: 'Live' },
   ];
 
   if (!ready) return null;
@@ -116,7 +116,7 @@ export default function LeaderboardPage() {
             <div
               className="hidden sm:grid items-center px-3 py-2 text-xs"
               style={{
-                gridTemplateColumns: '2.5rem 1fr 5rem repeat(4, minmax(3rem, 4.5rem))',
+                gridTemplateColumns: '2.5rem 1fr 5rem repeat(5, minmax(3rem, 4.5rem))',
                 borderBottom: '1px dashed rgba(232,228,217,0.18)',
                 color: 'var(--chalk-ghost)',
                 fontFamily: 'var(--font-chalk-body)',
@@ -125,7 +125,7 @@ export default function LeaderboardPage() {
               <span>#</span>
               <span>User</span>
               <span className="text-center">Record</span>
-              {columns.slice(0, 4).map((col) => (
+              {columns.slice(0, 5).map((col) => (
                 <button
                   key={col.key}
                   onClick={() => handleSort(col.key)}
@@ -176,7 +176,7 @@ export default function LeaderboardPage() {
                   <div
                     className="hidden sm:grid items-center px-3 py-2.5 transition-all duration-200 fade-up"
                     style={{
-                      gridTemplateColumns: '2.5rem 1fr 5rem repeat(4, minmax(3rem, 4.5rem))',
+                      gridTemplateColumns: '2.5rem 1fr 5rem repeat(5, minmax(3rem, 4.5rem))',
                       borderBottom: '1px dashed rgba(232,228,217,0.08)',
                       background: isMe
                         ? 'rgba(245,217,96,0.06)'
@@ -212,6 +212,14 @@ export default function LeaderboardPage() {
                       style={{ color: 'var(--chalk-dim)' }}
                     >
                       {record}
+                    </span>
+
+                    {/* Points */}
+                    <span
+                      className="chalk-score text-sm text-right"
+                      style={{ color: 'var(--color-yellow)' }}
+                    >
+                      {formatNum(entry.challengePoints)}
                     </span>
 
                     {/* Profit */}
@@ -301,6 +309,7 @@ export default function LeaderboardPage() {
                         className="grid grid-cols-3 gap-2 px-3 pb-3 text-center fade-up"
                         style={{ fontFamily: 'var(--font-chalk-body)' }}
                       >
+                        <MobileStat label="Points" value={formatNum(entry.challengePoints)} color="var(--color-yellow)" />
                         <MobileStat label="Record" value={record} />
                         <MobileStat
                           label="ROI"
@@ -313,7 +322,6 @@ export default function LeaderboardPage() {
                           value={entry.pendingChalk > 0 ? formatNum(entry.pendingChalk) : '—'}
                           color={entry.pendingChalk > 0 ? 'var(--color-yellow)' : undefined}
                         />
-                        <MobileStat label="Open" value={String(entry.openBets)} />
                         <MobileStat label="Live" value={String(entry.liveBets)} />
                       </div>
                     )}

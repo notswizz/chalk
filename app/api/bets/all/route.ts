@@ -9,7 +9,9 @@ export async function GET(req: Request) {
 
   const constraints = [];
 
-  if (status) {
+  if (status === 'settled_all') {
+    constraints.push(where('status', '==', 'settled'));
+  } else if (status) {
     constraints.push(where('status', '==', status));
   } else {
     constraints.push(where('status', 'in', ['open', 'matched']));

@@ -75,37 +75,37 @@ export function InfoModal({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--dust-medium) transparent' }}>
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-5 space-y-5">
           {/* Tagline */}
           <div className="text-center pb-2">
-            <p className="text-sm" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}>
+            <p className="text-base" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-body)' }}>
               Watch live sports, create player props, talk trash, and clip highlights — all in one place.
             </p>
           </div>
 
           {SECTIONS.map((section) => (
             <div key={section.title} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-[4px] flex items-center justify-center mt-0.5" style={{ background: `${section.color}12` }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={section.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex-shrink-0 w-8 h-8 rounded-[4px] flex items-center justify-center mt-0.5" style={{ background: `${section.color}12` }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={section.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d={section.icon} />
                 </svg>
               </div>
               <div>
-                <div className="text-[11px] chalk-header tracking-wide" style={{ color: section.color }}>{section.title}</div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)', lineHeight: 1.5 }}>{section.desc}</div>
+                <div className="text-xs chalk-header tracking-wide" style={{ color: section.color }}>{section.title}</div>
+                <div className="text-sm mt-0.5" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)', lineHeight: 1.5 }}>{section.desc}</div>
               </div>
             </div>
           ))}
 
           {/* Footer */}
           <div className="pt-3 text-center" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
-            <p className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+            <p className="text-xs" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
               Built for degens by degens.
             </p>
-            <div className="flex items-center justify-center gap-3 mt-2">
-              <a href="https://x.com/chalk_streams" target="_blank" rel="noopener noreferrer" className="text-[10px] chalk-header" style={{ color: 'var(--color-yellow)' }}>@chalk_streams</a>
+            <div className="flex items-center justify-center gap-4 mt-2">
+              <a href="https://x.com/chalk_streams" target="_blank" rel="noopener noreferrer" className="text-xs chalk-header" style={{ color: 'var(--color-yellow)' }}>@chalk_streams</a>
               <span style={{ color: 'var(--chalk-ghost)', opacity: 0.3 }}>|</span>
-              <a href="https://discord.gg/VN2r3Gxg" target="_blank" rel="noopener noreferrer" className="text-[10px] chalk-header" style={{ color: 'var(--color-blue, #5db8e8)' }}>Discord</a>
+              <a href="https://discord.gg/VN2r3Gxg" target="_blank" rel="noopener noreferrer" className="text-xs chalk-header" style={{ color: 'var(--color-blue, #5db8e8)' }}>Discord</a>
             </div>
           </div>
         </div>

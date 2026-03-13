@@ -80,7 +80,7 @@ export function BetFeed({ gameId, gameTitle, gameOver, gameLive, teams, teamIds,
     };
   };
 
-  const displayBets = (tab === 'open' ? bets.filter((b) => b.status === 'open') : myBets).map(enrichBet);
+  const displayBets = (tab === 'open' ? bets.filter((b) => b.status === 'open') : myBets.filter((b) => b.status !== 'cancelled')).map(enrichBet);
   const openCount = bets.filter((b) => b.status === 'open').length;
   const matchedCount = bets.filter((b) => b.status === 'matched').length;
 

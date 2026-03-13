@@ -981,6 +981,26 @@ html:has(.pinned-header-layout) main {
   border-bottom: 1px dashed rgba(232, 228, 217, 0.1);
 }
 
+/* ─── Bet rail card ─── */
+.bet-rail-card {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(232, 228, 217, 0.03);
+  border: 1px solid rgba(232, 228, 217, 0.06);
+  transition: all 0.2s ease;
+  text-decoration: none;
+  justify-content: center;
+}
+
+.bet-rail-card:hover {
+  border-color: rgba(245, 217, 96, 0.2);
+  background: rgba(232, 228, 217, 0.05);
+  transform: translateY(-2px);
+}
+
 /* Hide clip rails on smaller screens */
 @media (max-width: 1200px) {
   .clip-rail {

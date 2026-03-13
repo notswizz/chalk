@@ -78,7 +78,8 @@ export function ActivityModal({ open, onClose }: { open: boolean; onClose: () =>
 
   if (!open) return null;
 
-  const outcomes = bets.map((b) => getOutcome(b, userId!));
+  const visibleBets = bets.filter((b) => b.status !== 'cancelled');
+  const outcomes = visibleBets.map((b) => getOutcome(b, userId!));
   const wins = outcomes.filter((o) => o === 'won').length;
   const losses = outcomes.filter((o) => o === 'lost').length;
   const pushes = outcomes.filter((o) => o === 'push').length;
@@ -139,7 +140,7 @@ export function ActivityModal({ open, onClose }: { open: boolean; onClose: () =>
             <>
               {/* Stats bar */}
               <div className="flex flex-wrap gap-2 mb-3">
-                <StatPill label="Total" value={bets.length} color="var(--chalk-white)" />
+                <StatPill label="Total" value={visibleBets.length} color="var(--chalk-white)" />
                 <StatPill label="W" value={wins} color="var(--color-green)" />
                 <StatPill label="L" value={losses} color="var(--color-red)" />
                 <StatPill label="P" value={pushes} color="var(--chalk-dim)" />
@@ -150,7 +151,7 @@ export function ActivityModal({ open, onClose }: { open: boolean; onClose: () =>
               <div className="flex gap-1 mb-4">
                 {(['all', 'open', 'live', 'graded'] as const).map((tab) => {
                   const active = filter === tab;
-                  const count = tab === 'all' ? bets.length
+                  const count = tab === 'all' ? visibleBets.length
                     : tab === 'open' ? outcomes.filter((o) => o === 'open').length
                     : tab === 'live' ? outcomes.filter((o) => o === 'live').length
                     : outcomes.filter((o) => o === 'won' || o === 'lost' || o === 'push').length;
@@ -172,13 +173,13 @@ export function ActivityModal({ open, onClose }: { open: boolean; onClose: () =>
                 })}
               </div>
 
-              {bets.length === 0 ? (
+              {visibleBets.length === 0 ? (
                 <p className="text-sm text-center py-10" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
                   No bets yet. Head to a game to create your first prop.
                 </p>
               ) : (
                 <div className="space-y-2.5">
-                  {bets.map((bet, i) => {
+                  {visibleBets.map((bet, i) => {
                     const outcome = outcomes[i];
                     if (filter === 'open' && outcome !== 'open') return null;
                     if (filter === 'live' && outcome !== 'live') return null;

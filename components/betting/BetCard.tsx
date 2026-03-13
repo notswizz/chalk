@@ -94,7 +94,7 @@ const STAT_LABELS: Record<string, string> = { points: 'PTS', rebounds: 'REB', as
 
 export function toAmericanOdds(decimal: number) {
   if (decimal >= 1) return `+${Math.round(decimal * 100)}`;
-  return `${Math.round(-100 / decimal)}`;
+  return `−${Math.round(100 / decimal)}`;
 }
 
 export function BetCard({ bet, onUpdate, showGame, gameOver, liveStats }: { bet: Bet; onUpdate: () => void; showGame?: boolean; gameOver?: boolean; liveStats?: Record<string, number> | null }) {
@@ -292,93 +292,127 @@ export function BetCard({ bet, onUpdate, showGame, gameOver, liveStats }: { bet:
         </div>
 
         {/* Prop line */}
-        <div className="px-2.5 py-2" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
-          <div className="flex items-center justify-center gap-2">
-            <span
-              className="px-2 py-0.5 rounded-[3px] text-[10px] chalk-header tracking-wide"
-              style={{ background: `${displayDirColor}12`, color: displayDirColor, border: `1px dashed ${displayDirColor}25` }}
-            >
-              {displayDir.toUpperCase()}
-            </span>
-            <span className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
-            <span className="text-[11px] chalk-header" style={{ color: 'var(--chalk-dim)' }}>{statLabel}</span>
-          </div>
-          {isTracking && (
-            <div className="flex items-center justify-center gap-1.5 mt-1.5">
-              <span className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Now:</span>
+        {!isSettled && (
+          <div className="px-2.5 py-2" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
+            <div className="flex items-center justify-center gap-2">
               <span
-                className="text-sm tabular-nums chalk-score"
-                style={{ color: currentStat >= bet.target ? 'var(--color-green)' : 'var(--color-yellow)' }}
+                className="px-2 py-0.5 rounded-[3px] text-[10px] chalk-header tracking-wide"
+                style={{ background: `${displayDirColor}12`, color: displayDirColor, border: `1px dashed ${displayDirColor}25` }}
               >
-                {currentStat}
+                {displayDir.toUpperCase()}
               </span>
-              <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+              <span className="text-xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{bet.target}</span>
+              <span className="text-[11px] chalk-header" style={{ color: 'var(--chalk-dim)' }}>{statLabel}</span>
             </div>
-          )}
-        </div>
+            {isTracking && (
+              <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                <span className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Now:</span>
+                <span
+                  className="text-sm tabular-nums chalk-score"
+                  style={{ color: currentStat >= bet.target ? 'var(--color-green)' : 'var(--color-yellow)' }}
+                >
+                  {currentStat}
+                </span>
+                <span className="text-[9px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Numbers strip */}
         <div className="flex items-center justify-between px-2.5 py-2" style={{ background: 'rgba(232,228,217,0.02)', borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
-          <div className="text-center flex-1">
-            <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>{displayStake}</div>
-            <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
-          </div>
-          <div className="w-px h-6" style={{ background: 'rgba(232,228,217,0.08)' }} />
+          {!isSettled && (
+            <>
+              <div className="text-center flex-1">
+                <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--color-blue)' }}>{displayStake}</div>
+                <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Stake</div>
+              </div>
+              <div className="w-px h-6" style={{ background: 'rgba(232,228,217,0.08)' }} />
+            </>
+          )}
           <div className="text-center flex-1">
             <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--color-green)' }}>{pool}</div>
             <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Pot</div>
           </div>
           <div className="w-px h-6" style={{ background: 'rgba(232,228,217,0.08)' }} />
           <div className="text-center flex-1">
-            <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{displayOdds}</div>
+            <div className="text-base tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>
+              {isSettled && !isParticipant
+                ? `±${displayOdds.replace(/^[+−-]/, '')}`
+                : displayOdds
+              }
+            </div>
             <div className="text-[8px] uppercase tracking-wider" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Odds</div>
           </div>
         </div>
 
         {/* Settled result */}
-        {isSettled && bet.actualValue != null && (
-          <div className="px-2.5 py-1.5 flex items-center justify-center gap-1.5 text-[10px]" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)', fontFamily: 'var(--font-chalk-body)' }}>
-            <span style={{ color: 'var(--chalk-ghost)' }}>Actual: {bet.actualValue} {statLabel}</span>
-            <span className="chalk-header" style={{ color: bet.result === 'push' ? 'var(--chalk-dim)' : bet.result === 'creator_wins' ? 'var(--color-green)' : 'var(--color-red)' }}>
-              {bet.result === 'push' ? 'Push' : bet.result === 'creator_wins' ? `${bet.creatorName} wins` : `${bet.takerName} wins`}
-            </span>
+        {isSettled && bet.result && (
+          <div className="relative px-2.5 py-3 flex flex-col items-center gap-2" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
+            {/* Share button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const text = bet.result === 'push'
+                  ? `Push! ${bet.player} hit exactly ${bet.target} ${statLabel}`
+                  : `${bet.result === 'creator_wins' ? bet.creatorName : bet.takerName} wins! ${bet.player}: ${bet.actualValue ?? '?'} ${statLabel} (line: ${bet.target})`;
+                navigator.clipboard.writeText(text);
+              }}
+              className="absolute top-2 right-2 p-1.5 rounded-[4px] cursor-pointer transition-all hover:scale-110"
+              style={{ color: 'var(--chalk-ghost)', background: 'rgba(232,228,217,0.06)' }}
+              title="Share"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            </button>
+            {bet.actualValue != null && (
+              <div className="text-3xl tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>
+                {bet.actualValue} <span style={{ color: bet.actualValue > bet.target ? 'var(--color-green)' : bet.actualValue < bet.target ? 'var(--color-red)' : 'var(--chalk-dim)' }}>{bet.actualValue > bet.target ? '>' : bet.actualValue < bet.target ? '<' : '='}</span> {bet.target} <span className="text-sm" style={{ color: 'var(--chalk-ghost)' }}>{statLabel}</span>
+              </div>
+            )}
+            {bet.result === 'push' ? (
+              <span className="text-base chalk-header" style={{ color: 'var(--chalk-dim)' }}>Push</span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-base chalk-header"
+                  style={{
+                    background: 'linear-gradient(90deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                    fontWeight: 800,
+                  }}
+                >
+                  {bet.result === 'creator_wins' ? bet.creatorName : bet.takerName}
+                </span>
+                <span className="text-lg tabular-nums chalk-score" style={{ color: 'var(--color-yellow)' }}>
+                  +{bet.result === 'creator_wins' ? bet.takerStake.toLocaleString() : bet.creatorStake.toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         {/* Footer */}
-        <div className="px-2.5 py-2 flex items-center justify-between" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
-          <span className="text-[9px] truncate" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-            {bet.creatorName}
-          </span>
-          <div className="flex items-center gap-1.5">
-            {isOpen && !isCreator && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!authenticated) { login(); return; }
-                  setShowConfirm(true);
-                }}
-                disabled={loading}
-                className="chalk-btn chalk-btn-accent px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer disabled:opacity-50"
-              >
-                {loading ? '...' : 'Take It'}
-              </button>
-            )}
-            {authenticated && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowChalkCard(true); }}
-                className="chalk-btn px-1.5 py-1 rounded-[3px] cursor-pointer"
-                style={{ background: 'rgba(245,217,96,0.08)', color: 'var(--color-yellow)' }}
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-                  <polyline points="16 6 12 2 8 6" />
-                  <line x1="12" y1="2" x2="12" y2="15" />
-                </svg>
-              </button>
-            )}
+        {isOpen && !isCreator && (
+          <div className="px-2.5 py-1.5 flex items-center justify-end" style={{ borderTop: '1px dashed rgba(232,228,217,0.06)' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!authenticated) { login(); return; }
+                setShowConfirm(true);
+              }}
+              disabled={loading}
+              className="chalk-btn chalk-btn-accent px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer disabled:opacity-50"
+            >
+              {loading ? '...' : 'Take It'}
+            </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Detail modal — portaled to body to escape scroll container clipping */}
@@ -507,6 +541,35 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dirColor = bet.direction === 'over' ? 'var(--color-green)' : 'var(--color-red)';
+
+  // Live stats
+  const [liveStat, setLiveStat] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLive = () => {
+      fetch(`/api/bets/live-stats?gameId=${bet.gameId}&sport=${bet.sport || 'nba'}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return;
+          const stats = data.stats ?? {};
+          const playerKey = bet.player.toLowerCase();
+          let found: Record<string, number> | null = null;
+          if (stats[playerKey]) { found = stats[playerKey]; }
+          else {
+            const lastName = playerKey.split(' ').pop() || '';
+            for (const [name, s] of Object.entries(stats)) {
+              if (name.split(' ').pop() === lastName) { found = s as Record<string, number>; break; }
+            }
+          }
+          setLiveStat(found?.[bet.stat] ?? null);
+        })
+        .catch(() => {});
+    };
+    fetchLive();
+    const interval = setInterval(fetchLive, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [bet.gameId, bet.sport, bet.player, bet.stat]);
 
   // Cashout state
   const [proposals, setProposals] = useState<CashoutProposal[]>([]);
@@ -693,6 +756,23 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
                 <span className="text-sm" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
               </div>
             </div>
+
+            {liveStat !== null && (
+              <div
+                className="flex items-center gap-3 px-3 py-2.5 rounded-[4px]"
+                style={{ background: 'rgba(93,232,138,0.04)', border: '1px dashed rgba(93,232,138,0.15)' }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--color-green)' }} />
+                  <span className="text-[9px] uppercase tracking-wider chalk-header" style={{ color: 'var(--color-green)' }}>LIVE</span>
+                </span>
+                <span className="text-lg tabular-nums chalk-score" style={{ color: 'var(--chalk-white)' }}>{liveStat}</span>
+                <span className="text-xs" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>{statLabel}</span>
+                <span className="ml-auto text-xs chalk-header" style={{ color: liveStat >= bet.target ? 'var(--color-green)' : 'var(--color-red)' }}>
+                  {liveStat >= bet.target ? 'OVER' : 'UNDER'}
+                </span>
+              </div>
+            )}
 
             <div className="text-center py-2.5 rounded-[4px]" style={{ background: 'rgba(232,228,217,0.04)', border: '1px dashed rgba(232,228,217,0.08)' }}>
               <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>Total Pot</div>
@@ -1050,8 +1130,8 @@ function StatusBadge({ status, gameOver, isMatched }: { status: string; gameOver
   const config: Record<string, { color: string; label: string }> = {
     open: { color: 'var(--color-green)', label: 'OPEN' },
     matched: { color: 'var(--color-yellow)', label: isMatched && gameOver ? 'FINAL' : 'LIVE' },
-    settled: { color: 'var(--chalk-dim)', label: 'WIPED' },
-    cancelled: { color: 'var(--chalk-ghost)', label: 'ERASED' },
+    settled: { color: 'var(--color-yellow)', label: '' },
+    cancelled: { color: 'var(--chalk-ghost)', label: 'WIPED' },
   };
   const c = config[status] || config.cancelled;
   return (

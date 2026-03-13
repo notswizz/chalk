@@ -17,6 +17,8 @@ interface Clip {
   duration: number;
   url: string;
   createdAt: number;
+  upvotes?: number;
+  downvotes?: number;
 }
 
 function relativeTime(ts: number): string {
@@ -40,15 +42,35 @@ const SPORT_FILTERS = [
   { key: 'soccer', label: 'Soccer' },
 ];
 
+const TIME_FILTERS = [
+  { key: '', label: 'All Time' },
+  { key: '1d', label: '24h' },
+  { key: '1w', label: '1W' },
+  { key: '1m', label: '1M' },
+];
+
+const SORT_OPTIONS = [
+  { key: 'recent', label: 'Recent' },
+  { key: 'upvotes', label: 'Top' },
+];
+
 export default function ClipsPage() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [loading, setLoading] = useState(true);
   const [sportFilter, setSportFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState('');
+  const [sort, setSort] = useState('recent');
+  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
+  const { authenticated, getAccessToken } = useUser();
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
       try {
-        const res = await fetch('/api/clips');
+        const params = new URLSearchParams();
+        if (sort) params.set('sort', sort);
+        if (timeFilter) params.set('time', timeFilter);
+        const res = await fetch(`/api/clips?${params}`);
         if (res.ok) {
           const data = await res.json();
           setClips(data.clips ?? []);
@@ -60,7 +82,63 @@ export default function ClipsPage() {
       }
     }
     load();
-  }, []);
+  }, [sort, timeFilter]);
+
+  // Fetch user's votes
+  useEffect(() => {
+    if (!authenticated || clips.length === 0) return;
+    async function loadVotes() {
+      try {
+        const token = await getAccessToken();
+        const ids = clips.map((c) => c.id).join(',');
+        const res = await fetch(`/api/clips/vote?clipIds=${ids}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserVotes(data.votes ?? {});
+        }
+      } catch { /* silent */ }
+    }
+    loadVotes();
+  }, [authenticated, clips]);
+
+  async function handleVote(clipId: string, vote: 'up' | 'down') {
+    if (!authenticated) return;
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/clips/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ clipId, vote }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserVotes((prev) => {
+          const next = { ...prev };
+          if (data.vote) next[clipId] = data.vote;
+          else delete next[clipId];
+          return next;
+        });
+        // Update local clip counts
+        setClips((prev) =>
+          prev.map((c) => {
+            if (c.id !== clipId) return c;
+            const prevVote = userVotes[clipId];
+            let up = c.upvotes ?? 0;
+            let down = c.downvotes ?? 0;
+            // Remove previous vote
+            if (prevVote === 'up') up = Math.max(0, up - 1);
+            if (prevVote === 'down') down = Math.max(0, down - 1);
+            // Add new vote
+            if (data.vote === 'up') up += 1;
+            if (data.vote === 'down') down += 1;
+            return { ...c, upvotes: up, downvotes: down };
+          })
+        );
+      }
+    } catch { /* silent */ }
+  }
 
   const filtered = sportFilter === 'all' ? clips : clips.filter((c) => c.sport === sportFilter);
   const sportCounts = clips.reduce<Record<string, number>>((acc, c) => {
@@ -113,6 +191,50 @@ export default function ClipsPage() {
             })}
           </div>
         )}
+
+        {/* Time filter + sort */}
+        {clips.length > 0 && (
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              {TIME_FILTERS.map((t) => {
+                const active = timeFilter === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTimeFilter(t.key)}
+                    className="flex-shrink-0 px-2 py-0.5 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all"
+                    style={{
+                      background: active ? 'rgba(93,155,232,0.12)' : 'transparent',
+                      border: active ? '1px dashed rgba(93,155,232,0.25)' : '1px dashed transparent',
+                      color: active ? 'var(--color-blue)' : 'var(--chalk-ghost)',
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1">
+              {SORT_OPTIONS.map((s) => {
+                const active = sort === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setSort(s.key)}
+                    className="flex-shrink-0 px-2 py-0.5 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all"
+                    style={{
+                      background: active ? 'rgba(245,217,96,0.12)' : 'transparent',
+                      border: active ? '1px dashed rgba(245,217,96,0.25)' : '1px dashed transparent',
+                      color: active ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── Scrollable Content ─── */}
@@ -144,7 +266,13 @@ export default function ClipsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((clip, i) => (
-              <ClipCard key={clip.id} clip={clip} index={i} />
+              <ClipCard
+                key={clip.id}
+                clip={clip}
+                index={i}
+                userVote={userVotes[clip.id] || null}
+                onVote={handleVote}
+              />
             ))}
           </div>
         )}
@@ -160,30 +288,36 @@ const TTS_VOICES = [
   { id: 'en-AU-WilliamNeural', label: 'William (AU)' },
 ];
 
-function ClipCard({ clip, index }: { clip: Clip; index: number }) {
+function ClipCard({ clip, index, userVote, onVote }: { clip: Clip; index: number; userVote: string | null; onVote: (clipId: string, vote: 'up' | 'down') => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const { authenticated } = useUser();
+  const score = (clip.upvotes ?? 0) - (clip.downvotes ?? 0);
 
-  function togglePlay() {
+  function handleMouseEnter() {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) {
-      video.play().catch(() => {});
-      setPlaying(true);
-    } else {
-      video.pause();
-      setPlaying(false);
-    }
+    video.currentTime = 0;
+    video.play().catch(() => {});
+    setPlaying(true);
+  }
+
+  function handleMouseLeave() {
+    const video = videoRef.current;
+    if (!video) return;
+    video.pause();
+    video.currentTime = 0;
+    setPlaying(false);
   }
 
   return (
     <>
       <div
-        className="chalk-card rounded-[4px] overflow-hidden fade-up cursor-pointer"
+        className="chalk-card rounded-[4px] overflow-hidden fade-up"
         style={{ animationDelay: `${Math.min(index * 50, 300)}ms`, opacity: 0 }}
-        onClick={togglePlay}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Video */}
         <div className="aspect-video bg-black relative">
@@ -191,6 +325,7 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
             ref={videoRef}
             src={clip.url}
             playsInline
+            muted
             preload="metadata"
             className="w-full h-full object-contain"
             onEnded={() => setPlaying(false)}
@@ -199,10 +334,10 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
           {!playing && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center"
+                className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--chalk-white)" className="ml-0.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--chalk-white)" className="ml-0.5">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </div>
@@ -238,9 +373,39 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
-              {clip.userName}
-            </span>
+            <div className="flex items-center gap-2">
+              {/* Vote buttons */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onVote(clip.id, 'up'); }}
+                  className="p-1 rounded-[3px] cursor-pointer transition-all hover:scale-110"
+                  style={{ color: userVote === 'up' ? 'var(--color-green)' : 'var(--chalk-ghost)', opacity: authenticated ? 1 : 0.4 }}
+                  disabled={!authenticated}
+                  title="Upvote"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill={userVote === 'up' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 4l-8 8h5v8h6v-8h5z" />
+                  </svg>
+                </button>
+                <span className="text-[10px] tabular-nums min-w-[16px] text-center font-bold" style={{ color: score > 0 ? 'var(--color-green)' : score < 0 ? 'var(--color-red)' : 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                  {score}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onVote(clip.id, 'down'); }}
+                  className="p-1 rounded-[3px] cursor-pointer transition-all hover:scale-110"
+                  style={{ color: userVote === 'down' ? 'var(--color-red)' : 'var(--chalk-ghost)', opacity: authenticated ? 1 : 0.4 }}
+                  disabled={!authenticated}
+                  title="Downvote"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill={userVote === 'down' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 20l8-8h-5V4H9v8H4z" />
+                  </svg>
+                </button>
+              </div>
+              <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                {clip.userName}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] tabular-nums" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
                 {relativeTime(clip.createdAt)}
