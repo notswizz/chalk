@@ -3,6 +3,19 @@ import { firestore } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, runTransaction } from 'firebase/firestore';
 import { fetchPlayerBoxScore, findPlayerStat, fetchGameById } from '@/lib/espn';
 
+const CHALKBOT_ID = 'system:chalk-props';
+
+/** Credit coins to a user. For ChalkBot, creates the doc if it doesn't exist. */
+async function creditUser(tx: Parameters<Parameters<typeof runTransaction>[1]>[0], userId: string, amount: number) {
+  const ref = doc(firestore, 'users', userId);
+  const snap = await tx.get(ref);
+  if (snap.exists()) {
+    tx.update(ref, { coins: (snap.data().coins ?? 0) + amount });
+  } else if (userId === CHALKBOT_ID) {
+    tx.set(ref, { coins: amount, displayName: 'ChalkBot', createdAt: Date.now() });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { gameId, sport } = await req.json();
@@ -35,10 +48,13 @@ export async function POST(req: Request) {
           const bet = betSnap.data();
           if (bet.status !== 'open') return;
 
-          const creatorRef = doc(firestore, 'users', bet.creatorId);
-          const creatorSnap = await tx.get(creatorRef);
-          if (creatorSnap.exists()) {
-            tx.update(creatorRef, { coins: (creatorSnap.data().coins ?? 0) + bet.creatorStake });
+          // Never refund ChalkBot — only credit, never debit
+          if (bet.creatorId !== CHALKBOT_ID) {
+            const creatorRef = doc(firestore, 'users', bet.creatorId);
+            const creatorSnap = await tx.get(creatorRef);
+            if (creatorSnap.exists()) {
+              tx.update(creatorRef, { coins: (creatorSnap.data().coins ?? 0) + bet.creatorStake });
+            }
           }
 
           tx.update(betRef, {
@@ -95,16 +111,11 @@ export async function POST(req: Request) {
             }
             // Already waited — settle as push (player DNP or not in game)
             didSettle = true;
-            const creatorRef = doc(firestore, 'users', bet.creatorId);
-            const takerRef = doc(firestore, 'users', bet.takerId);
-            const cSnap = await tx.get(creatorRef);
-            const tSnap = await tx.get(takerRef);
-            if (cSnap.exists()) {
-              tx.update(creatorRef, { coins: (cSnap.data().coins ?? 0) + bet.creatorStake });
+            const isChalkBotBet = bet.creatorId === CHALKBOT_ID;
+            if (!isChalkBotBet) {
+              await creditUser(tx, bet.creatorId, bet.creatorStake);
             }
-            if (tSnap.exists()) {
-              tx.update(takerRef, { coins: (tSnap.data().coins ?? 0) + bet.takerStake });
-            }
+            await creditUser(tx, bet.takerId, bet.takerStake);
             tx.update(betRef, {
               status: 'settled',
               actualValue: null,
@@ -123,26 +134,18 @@ export async function POST(req: Request) {
           const actualDirection = actualValue > bet.target ? 'over' : 'under';
           const creatorWins = !isPush && actualDirection === bet.direction;
           const totalPool = bet.creatorStake + bet.takerStake;
-
-          const creatorRef = doc(firestore, 'users', bet.creatorId);
-          const takerRef = doc(firestore, 'users', bet.takerId);
+          const isChalkBotBet = bet.creatorId === CHALKBOT_ID;
 
           if (isPush) {
-            const creatorSnap = await tx.get(creatorRef);
-            const takerSnap = await tx.get(takerRef);
-            if (creatorSnap.exists()) {
-              tx.update(creatorRef, { coins: (creatorSnap.data().coins ?? 0) + bet.creatorStake });
+            // Refund both sides — skip ChalkBot (never debit)
+            if (!isChalkBotBet) {
+              await creditUser(tx, bet.creatorId, bet.creatorStake);
             }
-            if (takerSnap.exists()) {
-              tx.update(takerRef, { coins: (takerSnap.data().coins ?? 0) + bet.takerStake });
-            }
+            await creditUser(tx, bet.takerId, bet.takerStake);
           } else {
             const winnerId = creatorWins ? bet.creatorId : bet.takerId;
-            const winnerRef = doc(firestore, 'users', winnerId);
-            const winnerSnap = await tx.get(winnerRef);
-            if (winnerSnap.exists()) {
-              tx.update(winnerRef, { coins: (winnerSnap.data().coins ?? 0) + totalPool });
-            }
+            // Always pay winner full pool (mints tokens when winning vs ChalkBot)
+            await creditUser(tx, winnerId, totalPool);
           }
 
           tx.update(betRef, {

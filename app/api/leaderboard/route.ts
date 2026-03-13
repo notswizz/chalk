@@ -170,8 +170,8 @@ export async function GET() {
       });
     }
 
-    // Filter out anonymous (chalkbot) entries
-    const filtered = leaderboard.filter((e) => e.displayName !== 'Anonymous');
+    // Filter out ChalkBot / anonymous entries
+    const filtered = leaderboard.filter((e) => e.userId !== 'system:chalk-props' && e.displayName !== 'Anonymous');
 
     // Default sort: by total profit descending
     filtered.sort((a, b) => b.totalProfit - a.totalProfit);
