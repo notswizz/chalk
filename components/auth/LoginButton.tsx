@@ -154,7 +154,7 @@ export function LoginButton() {
               {/* User info header */}
               <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px dashed rgba(232,228,217,0.06)' }}>
                 {avatar ? (
-                  <img src={avatar} alt={name} className="w-9 h-9 rounded-full object-cover ring-2" style={{ ringColor: 'rgba(245,217,96,0.2)' }} referrerPolicy="no-referrer" />
+                  <img src={avatar} alt={name} className="w-9 h-9 rounded-full object-cover ring-2 ring-yellow-500/20" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--color-yellow)', color: 'var(--board-dark)' }}>
                     {name[0].toUpperCase()}
