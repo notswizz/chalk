@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { firestore } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getPrivyUserEmail } from '@/lib/auth';
+import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
 
 const CHALKBOT_ID = 'system:chalk-props';
 
@@ -17,7 +18,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
+    const shouldBackfill = searchParams.get('backfill') === '1';
+    if (!shouldBackfill && cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
       return NextResponse.json(cachedResult.data);
     }
 
@@ -36,7 +38,7 @@ export async function GET(req: Request) {
     let totalUsers = 0;
     let totalCoinsInCirculation = 0;
     let totalReferrals = 0;
-    const usersList: { id: string; name: string; coins: number; walletAddress: string }[] = [];
+    const usersList: { id: string; name: string; email: string; coins: number; walletAddress: string; createdAt: number }[] = [];
 
     for (const doc of usersSnap.docs) {
       const d = doc.data();
@@ -46,9 +48,25 @@ export async function GET(req: Request) {
       usersList.push({
         id: doc.id,
         name: d.displayName || 'Anonymous',
+        email: d.email || '',
         coins: d.coins ?? 0,
         walletAddress: d.walletAddress || '',
+        createdAt: d.createdAt ?? 0,
       });
+    }
+
+    // ── Backfill emails from Privy if requested ──
+    if (shouldBackfill) {
+      const noEmail = usersList.filter((u) => !u.email);
+      await Promise.all(
+        noEmail.map(async (u) => {
+          const email = await getPrivyUserEmail(u.id);
+          if (email) {
+            u.email = email;
+            await updateDoc(doc(firestore, 'users', u.id), { email });
+          }
+        })
+      );
     }
 
     // ── ChalkBot Stats ──
@@ -235,6 +253,11 @@ export async function GET(req: Request) {
       .slice(0, 15)
       .map((u) => ({ name: u.name, coins: u.coins }));
 
+    // All users sorted by most recent
+    const allUsers = [...usersList]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((u) => ({ id: u.id, name: u.name, email: u.email, coins: u.coins, createdAt: u.createdAt }));
+
     const data = {
       overview: {
         totalUsers,
@@ -279,6 +302,7 @@ export async function GET(req: Request) {
       topPlayers,
       bottomPlayers,
       topHolders,
+      users: allUsers,
     };
 
     cachedResult = { data, timestamp: Date.now() };

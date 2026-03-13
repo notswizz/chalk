@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, getPrivyUserEmail } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ensureUserDoc } from '@/lib/ensure-user';
@@ -10,6 +10,15 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const ref = searchParams.get('ref') || undefined;
     const data = await ensureUserDoc(userId, ref);
+
+    // Persist email from Privy if not already saved
+    if (!(data as Record<string, unknown>).email) {
+      const email = await getPrivyUserEmail(userId);
+      if (email) {
+        await updateDoc(doc(firestore, 'users', userId), { email });
+      }
+    }
+
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
     });

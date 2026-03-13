@@ -44,6 +44,7 @@ interface AdminStats {
   topPlayers: { id: string; name: string; profit: number; wins: number; losses: number; volume: number }[];
   bottomPlayers: { id: string; name: string; profit: number; wins: number; losses: number; volume: number }[];
   topHolders: { name: string; coins: number }[];
+  users: { id: string; name: string; email: string; coins: number; createdAt: number }[];
 }
 
 export default function AdminDashboard() {
@@ -53,11 +54,12 @@ export default function AdminDashboard() {
   const [key, setKey] = useState('');
   const [authed, setAuthed] = useState(false);
 
-  const fetchStats = useCallback(async (apiKey: string) => {
+  const fetchStats = useCallback(async (apiKey: string, backfill = false) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin/stats?key=${encodeURIComponent(apiKey)}`);
+      const url = `/api/admin/stats?key=${encodeURIComponent(apiKey)}${backfill ? '&backfill=1' : ''}`;
+      const res = await fetch(url);
       if (res.status === 401) {
         setError('Invalid admin key');
         setAuthed(false);
@@ -342,6 +344,77 @@ export default function AdminDashboard() {
         <Section title="Referrals">
           <StatCard label="Total Referrals" value={fmt(overview.totalReferrals)} />
         </Section>
+
+        {/* ── All Users ── */}
+        <div className="flex items-center justify-between">
+          <h2
+            className="chalk-header text-lg mb-3"
+            style={{ color: 'var(--color-yellow)' }}
+          >
+            All Users
+          </h2>
+          <button
+            onClick={() => fetchStats(key, true)}
+            className="px-3 py-1.5 rounded-[4px] text-xs cursor-pointer mb-3"
+            style={{
+              background: 'rgba(232,228,217,0.08)',
+              border: '1px solid rgba(232,228,217,0.15)',
+              color: 'var(--chalk-dim)',
+              fontFamily: 'var(--font-chalk-body)',
+            }}
+          >
+            {loading ? 'Fetching...' : 'Backfill Emails'}
+          </button>
+        </div>
+        <div>
+          <div className="chalk-card rounded-[4px] overflow-hidden">
+            <div
+              className="grid items-center px-3 py-2 text-xs"
+              style={{
+                gridTemplateColumns: '1.5rem 1fr 1fr 5rem 6rem',
+                borderBottom: '1px dashed rgba(232,228,217,0.18)',
+                color: 'var(--chalk-ghost)',
+                fontFamily: 'var(--font-chalk-body)',
+              }}
+            >
+              <span>#</span>
+              <span>User</span>
+              <span>Email</span>
+              <span className="text-right">CHALK</span>
+              <span className="text-right">Joined</span>
+            </div>
+            {stats.users.map((u, i) => (
+              <div
+                key={u.id}
+                className="grid items-center px-3 py-2 text-sm"
+                style={{
+                  gridTemplateColumns: '1.5rem 1fr 1fr 5rem 6rem',
+                  borderBottom: '1px dashed rgba(232,228,217,0.08)',
+                  fontFamily: 'var(--font-chalk-body)',
+                }}
+              >
+                <span style={{ color: 'var(--chalk-ghost)' }}>{i + 1}</span>
+                <span className="truncate" style={{ color: 'var(--chalk-white)' }}>
+                  {u.name}
+                </span>
+                <span className="truncate" style={{ color: 'var(--chalk-dim)' }}>
+                  {u.email || '—'}
+                </span>
+                <span className="text-right chalk-score" style={{ color: 'var(--color-yellow)' }}>
+                  {fmt(u.coins)}
+                </span>
+                <span className="text-right" style={{ color: 'var(--chalk-ghost)' }}>
+                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+                </span>
+              </div>
+            ))}
+            {stats.users.length === 0 && (
+              <div className="px-3 py-4 text-center text-sm" style={{ color: 'var(--chalk-ghost)' }}>
+                No users yet
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

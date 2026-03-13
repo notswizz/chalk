@@ -20,3 +20,12 @@ export async function verifyAuth(req: Request): Promise<string> {
   const { userId } = await privy().verifyAuthToken(token);
   return userId;
 }
+
+export async function getPrivyUserEmail(userId: string): Promise<string> {
+  try {
+    const user = await privy().getUser(userId);
+    return user.email?.address || user.google?.email || '';
+  } catch {
+    return '';
+  }
+}
