@@ -139,8 +139,10 @@ export default function HomePage() {
     ? upcomingGames.filter((g) => g.id !== featuredGame.id)
     : upcomingGames;
 
-  const leftClips = clips.slice(0, Math.ceil(clips.length / 2));
-  const rightClips = clips.slice(Math.ceil(clips.length / 2));
+  // Always show exactly CLIPS_PER_RAIL per side for consistent height
+  const CLIPS_PER_RAIL = 3;
+  const leftClips = clips.slice(0, CLIPS_PER_RAIL);
+  const rightClips = clips.slice(CLIPS_PER_RAIL, CLIPS_PER_RAIL * 2);
 
   return (
     <div className="home-with-clips">

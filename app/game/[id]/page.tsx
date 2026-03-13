@@ -249,12 +249,9 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
 
       {/* Main layout: 3-column on desktop (Chat | Player | Board), stacked on mobile */}
       <div className="flex flex-col lg:flex-row lg:items-start gap-3">
-        {/* Left: Chat + Clips — skinny */}
+        {/* Left: Chat — skinny */}
         <div className="hidden lg:flex lg:flex-col lg:w-[220px] lg:flex-shrink-0">
           <GameChat gameId={id} />
-          <div className="mt-3">
-            <GameClips gameId={id} />
-          </div>
         </div>
 
         {/* Center: Scoreboard + Player + Sources — takes most space */}
@@ -327,7 +324,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
           {/* Video player */}
           {currentStream ? (
             <div className="rounded-[6px] overflow-hidden shadow-2xl shadow-black/50" style={{ border: '1.5px dashed rgba(232,228,217,0.15)' }}>
-              <StreamPlayer stream={currentStream} gameId={id} gameTitle={`${game.awayTeam.displayName} vs ${game.homeTeam.displayName}`} />
+              <StreamPlayer stream={currentStream} gameId={id} gameTitle={`${game.awayTeam.displayName} vs ${game.homeTeam.displayName}`} sport={game.sport} />
             </div>
           ) : (
             <div

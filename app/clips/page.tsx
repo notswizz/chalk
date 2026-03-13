@@ -30,9 +30,20 @@ function relativeTime(ts: number): string {
   return `${days}d ago`;
 }
 
+const SPORT_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'nba', label: 'NBA' },
+  { key: 'ncaam', label: 'NCAA' },
+  { key: 'nfl', label: 'NFL' },
+  { key: 'mlb', label: 'MLB' },
+  { key: 'nhl', label: 'NHL' },
+  { key: 'soccer', label: 'Soccer' },
+];
+
 export default function ClipsPage() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sportFilter, setSportFilter] = useState('all');
 
   useEffect(() => {
     async function load() {
@@ -51,45 +62,88 @@ export default function ClipsPage() {
     load();
   }, []);
 
+  const filtered = sportFilter === 'all' ? clips : clips.filter((c) => c.sport === sportFilter);
+  const sportCounts = clips.reduce<Record<string, number>>((acc, c) => {
+    acc[c.sport] = (acc[c.sport] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
-    <div className="pinned-header-layout max-w-4xl mx-auto px-4">
+    <div className="pinned-header-layout max-w-5xl mx-auto px-4">
       {/* ─── Pinned Header ─── */}
       <div className="pinned-header pt-6 pb-4">
-        <h1 className="text-xl chalk-header" style={{ color: 'var(--chalk-white)' }}>Clips</h1>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="section-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--chalk-ghost)' }}>
+                <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
+                <line x1="20" y1="4" x2="8.12" y2="15.88" /><line x1="14.47" y1="14.48" x2="20" y2="20" /><line x1="8.12" y1="8.12" x2="12" y2="12" />
+              </svg>
+              Clips
+            </div>
+            {!loading && clips.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold tabular-nums" style={{ background: 'rgba(245,217,96,0.08)', color: 'var(--color-yellow)' }}>
+                {filtered.length}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Sport filter pills */}
+        {clips.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide pb-1">
+            {SPORT_FILTERS.filter((s) => s.key === 'all' || sportCounts[s.key]).map((s) => {
+              const active = sportFilter === s.key;
+              const count = s.key === 'all' ? clips.length : (sportCounts[s.key] || 0);
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setSportFilter(s.key)}
+                  className="flex-shrink-0 px-2.5 py-1 rounded-[4px] text-[10px] chalk-header tracking-wide cursor-pointer transition-all"
+                  style={{
+                    background: active ? 'rgba(245,217,96,0.12)' : 'rgba(232,228,217,0.04)',
+                    border: active ? '1px dashed rgba(245,217,96,0.25)' : '1px dashed rgba(232,228,217,0.08)',
+                    color: active ? 'var(--color-yellow)' : 'var(--chalk-ghost)',
+                  }}
+                >
+                  {s.label}
+                  <span className="ml-1 tabular-nums" style={{ opacity: 0.6 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ─── Scrollable Content ─── */}
       <div className="pinned-scroll scrollbar-hide">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="aspect-video rounded-[4px] shimmer" />
             ))}
           </div>
-        ) : clips.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <div
               className="w-16 h-16 mx-auto mb-4 rounded-[4px] flex items-center justify-center"
               style={{ background: 'var(--dust-light)' }}
             >
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--chalk-ghost)" strokeWidth="2">
-                <circle cx="6" cy="6" r="3" />
-                <circle cx="6" cy="18" r="3" />
-                <line x1="20" y1="4" x2="8.12" y2="15.88" />
-                <line x1="14.47" y1="14.48" x2="20" y2="20" />
-                <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
+                <line x1="20" y1="4" x2="8.12" y2="15.88" /><line x1="14.47" y1="14.48" x2="20" y2="20" /><line x1="8.12" y1="8.12" x2="12" y2="12" />
               </svg>
             </div>
             <p className="text-sm" style={{ color: 'var(--chalk-dim)', fontFamily: 'var(--font-chalk-body)' }}>
-              No clips yet
+              {sportFilter !== 'all' ? `No ${SPORT_FILTERS.find((s) => s.key === sportFilter)?.label} clips yet` : 'No clips yet'}
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
               Watch a live game and hit the clip button to capture a highlight.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {clips.map((clip, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((clip, i) => (
               <ClipCard key={clip.id} clip={clip} index={i} />
             ))}
           </div>
@@ -155,11 +209,15 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
             </div>
           )}
 
-          <div
-            className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-[3px] text-[10px] tabular-nums chalk-header"
-            style={{ background: 'rgba(0,0,0,0.7)', color: 'var(--chalk-white)' }}
-          >
-            {clip.duration}s
+          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+            {clip.sport && (
+              <span className="px-1.5 py-0.5 rounded-[3px] text-[8px] chalk-header tracking-wider uppercase" style={{ background: 'rgba(245,217,96,0.15)', color: 'var(--color-yellow)' }}>
+                {clip.sport}
+              </span>
+            )}
+            <span className="px-1.5 py-0.5 rounded-[3px] text-[10px] tabular-nums chalk-header" style={{ background: 'rgba(0,0,0,0.7)', color: 'var(--chalk-white)' }}>
+              {clip.duration}s
+            </span>
           </div>
         </div>
 

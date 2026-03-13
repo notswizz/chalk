@@ -835,7 +835,7 @@ html:has(.pinned-header-layout) main {
   position: sticky;
   top: 80px;
   align-self: flex-start;
-  width: 220px;
+  width: 260px;
   flex-shrink: 0;
   padding: 12px 10px;
   margin-top: 24px;
@@ -909,7 +909,7 @@ html:has(.pinned-header-layout) main {
 .clip-rail-video-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 9 / 14;
+  aspect-ratio: 9 / 16;
   overflow: hidden;
   background: #111;
   flex-shrink: 0;
@@ -972,7 +972,7 @@ html:has(.pinned-header-layout) main {
 }
 
 /* Hide clip rails on smaller screens */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .clip-rail {
     display: none;
   }

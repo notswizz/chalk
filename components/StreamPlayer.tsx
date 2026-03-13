@@ -12,9 +12,10 @@ interface StreamPlayerProps {
   stream: StreamLink;
   gameId?: string;
   gameTitle?: string;
+  sport?: string;
 }
 
-export function StreamPlayer({ stream, gameId, gameTitle }: StreamPlayerProps) {
+export function StreamPlayer({ stream, gameId, gameTitle, sport }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -173,7 +174,7 @@ export function StreamPlayer({ stream, gameId, gameTitle }: StreamPlayerProps) {
             userName: profile?.displayName || 'User',
             gameId: gameId || '',
             gameTitle: gameTitle || '',
-            sport: 'nba',
+            sport: sport || 'nba',
             duration: Math.round(trimDuration),
             url,
           }),
