@@ -55,12 +55,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setLoadingProfile(true);
     try {
       const token = await getAccessToken();
-      const res = await fetch('/api/users/me', {
+      // Check for referral code in localStorage (set by /ref/[username] page)
+      const ref = typeof window !== 'undefined' ? localStorage.getItem('chalk_ref') : null;
+      const url = ref ? `/api/users/me?ref=${encodeURIComponent(ref)}` : '/api/users/me';
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
       if (res.ok) {
         const data = await res.json();
+        // Clear referral code after use
+        if (ref && data.isNew) {
+          localStorage.removeItem('chalk_ref');
+        }
         setProfile({
           coins: data.coins,
           displayName: data.displayName || 'User',

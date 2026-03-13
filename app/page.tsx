@@ -222,7 +222,7 @@ export default function HomePage() {
           {!authenticated && (
             <button
               onClick={login}
-              className="relative px-3 py-1.5 rounded-[4px] text-[11px] font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 overflow-hidden"
+              className="hidden md:block relative px-3 py-1.5 rounded-[4px] text-[11px] font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 overflow-hidden"
               style={{
                 background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)',
                 color: '#1a2a1a',

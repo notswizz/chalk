@@ -17,6 +17,7 @@ export function LoginButton() {
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [mismatchToast, setMismatchToast] = useState(false);
+  const [refCopied, setRefCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on outside click
@@ -35,20 +36,36 @@ export function LoginButton() {
 
   if (!authenticated) {
     return (
-      <button
-        onClick={login}
-        className="flex items-center gap-2 px-4 py-2 rounded-[4px] text-sm font-semibold transition-all duration-200 hover:brightness-125 cursor-pointer"
-        style={{
-          background: 'rgba(245,217,96,0.12)',
-          border: '1px dashed rgba(245,217,96,0.25)',
-          color: 'var(--color-yellow)',
-        }}
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
-        </svg>
-        Sign in
-      </button>
+      <>
+        {/* Mobile: rainbow claim button */}
+        <button
+          onClick={login}
+          className="md:hidden relative px-3 py-1.5 rounded-[4px] text-[11px] font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)',
+            color: '#1a2a1a',
+            fontFamily: 'var(--font-chalk-header)',
+            textShadow: '0 1px 0 rgba(255,255,255,0.2)',
+          }}
+        >
+          Claim 500 $CHALK
+        </button>
+        {/* Desktop: sign in button */}
+        <button
+          onClick={login}
+          className="hidden md:flex items-center gap-2 px-4 py-2 rounded-[4px] text-sm font-semibold transition-all duration-200 hover:brightness-125 cursor-pointer"
+          style={{
+            background: 'rgba(245,217,96,0.12)',
+            border: '1px dashed rgba(245,217,96,0.25)',
+            color: 'var(--color-yellow)',
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+          </svg>
+          Sign in
+        </button>
+      </>
     );
   }
 
@@ -226,6 +243,25 @@ export function LoginButton() {
                       <circle cx="12" cy="7" r="4" />
                     </svg>
                     Set Username
+                  </button>
+                )}
+                {profile?.displayName && profile.displayName !== 'User' && (
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/ref/${encodeURIComponent(profile.displayName)}`;
+                      navigator.clipboard.writeText(url);
+                      setRefCopied(true);
+                      setTimeout(() => setRefCopied(false), 2000);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-all duration-150 cursor-pointer hover:bg-[rgba(245,217,96,0.06)]"
+                    style={{ color: 'var(--color-yellow)' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    {refCopied ? 'Copied!' : 'Invite Friend (+500)'}
                   </button>
                 )}
               </div>

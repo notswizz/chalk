@@ -7,7 +7,9 @@ import { ensureUserDoc } from '@/lib/ensure-user';
 export async function GET(req: Request) {
   try {
     const userId = await verifyAuth(req);
-    const data = await ensureUserDoc(userId);
+    const { searchParams } = new URL(req.url);
+    const ref = searchParams.get('ref') || undefined;
+    const data = await ensureUserDoc(userId, ref);
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
     });
