@@ -541,7 +541,7 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
 
   useEffect(() => {
     if (tab !== 'chat' || !isParticipant) return;
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, 60000);
     return () => clearInterval(interval);
   }, [tab, isParticipant, fetchMessages]);
 
@@ -587,7 +587,7 @@ export function BetDetailModal({ bet, statLabel, takerOdds, creatorOdds, pool, i
   // Poll cashout proposals every 5s
   useEffect(() => {
     if (tab !== 'cashout' || !isParticipant) return;
-    const interval = setInterval(fetchProposals, 5000);
+    const interval = setInterval(fetchProposals, 60000);
     return () => clearInterval(interval);
   }, [tab, isParticipant, fetchProposals]);
 

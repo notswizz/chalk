@@ -27,9 +27,12 @@ export function BetFeed({ gameId, gameTitle, gameOver, gameLive, teams, teamIds,
     finally { setStatsLoading(false); }
   }, [gameId, sport]);
 
-  // Auto-fetch live stats when game is live
+  // Auto-fetch live stats when game is live, poll every 60s
   useEffect(() => {
-    if (gameLive) fetchLiveStats();
+    if (!gameLive) return;
+    fetchLiveStats();
+    const interval = setInterval(fetchLiveStats, 60000);
+    return () => clearInterval(interval);
   }, [gameLive, fetchLiveStats]);
 
   const fetchBets = useCallback(async () => {
