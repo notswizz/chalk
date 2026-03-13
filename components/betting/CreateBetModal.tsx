@@ -20,10 +20,10 @@ interface SeasonAverages {
 }
 
 const STATS = [
-  { value: 'points', label: 'Points' },
-  { value: 'rebounds', label: 'Rebounds' },
-  { value: 'assists', label: 'Assists' },
-  { value: 'threes', label: '3-Pointers' },
+  { value: 'points', label: 'Points', abbr: 'PTS' },
+  { value: 'rebounds', label: 'Rebounds', abbr: 'REB' },
+  { value: 'assists', label: 'Assists', abbr: 'AST' },
+  { value: 'threes', label: '3-Pointers', abbr: '3PM' },
 ];
 
 interface Props {
@@ -215,13 +215,10 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
           <div className="w-8 h-1 rounded-full" style={{ background: 'var(--dust-medium)' }} />
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="p-4 sm:p-5">
           {/* Header */}
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-sm font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>Draw Up a Prop</h2>
-              <p className="text-[10px] mt-0.5 truncate max-w-[250px]" style={{ color: 'var(--chalk-ghost)' }}>{gameTitle}</p>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold" style={{ color: 'var(--chalk-white)', fontFamily: 'var(--font-chalk-header)' }}>Draw Up a Prop</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-[4px] transition-colors cursor-pointer"
@@ -233,7 +230,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {/* Player */}
             <Field label="Player">
               <div className="relative">
@@ -342,18 +339,26 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameL
             {/* Live stats hint */}
             {gameLive && liveStats && (
               <div
-                className="flex items-center gap-2 px-3 py-2 rounded-[4px]"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-[4px]"
                 style={{ background: 'rgba(93,232,138,0.04)', border: '1px dashed rgba(93,232,138,0.15)' }}
               >
-                <span className="text-[8px] uppercase tracking-wider chalk-header" style={{ color: 'var(--color-green)' }}>LIVE</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--color-green)' }} />
+                  <span className="text-[9px] uppercase tracking-wider chalk-header" style={{ color: 'var(--color-green)' }}>LIVE</span>
+                </span>
                 {STATS.map((s) => {
                   const val = liveStats[s.value];
                   if (val == null) return null;
                   const isSelected = s.value === stat;
                   return (
-                    <span key={s.value} className="text-[10px] tabular-nums" style={{ color: isSelected ? 'var(--chalk-white)' : 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)', fontWeight: isSelected ? 700 : 400 }}>
-                      {val} <span style={{ fontSize: '8px', opacity: 0.7 }}>{s.label.slice(0, 3).toUpperCase()}</span>
-                    </span>
+                    <div key={s.value} className="flex flex-col items-center" style={{ minWidth: 32 }}>
+                      <span className="text-sm tabular-nums font-bold" style={{ color: isSelected ? 'var(--chalk-white)' : 'var(--chalk-dim)', lineHeight: 1 }}>
+                        {val}
+                      </span>
+                      <span className="text-[8px] uppercase tracking-wider mt-0.5" style={{ color: isSelected ? 'var(--color-green)' : 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
+                        {s.abbr}
+                      </span>
+                    </div>
                   );
                 })}
               </div>
