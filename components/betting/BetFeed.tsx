@@ -211,6 +211,7 @@ export function BetFeed({ gameId, gameTitle, gameOver, gameLive, teams, teamIds,
           teams={teams}
           teamIds={teamIds}
           sport={sport}
+          gameLive={gameLive}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);

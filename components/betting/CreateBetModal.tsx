@@ -32,6 +32,7 @@ interface Props {
   teams?: string[];
   teamIds?: string[];
   sport?: string;
+  gameLive?: boolean;
   onClose: () => void;
   onCreated: () => void;
 }
@@ -50,7 +51,7 @@ function formatAmerican(val: number): string {
   return val > 0 ? `+${val}` : `${val}`;
 }
 
-export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClose, onCreated }: Props) {
+export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, gameLive, onClose, onCreated }: Props) {
   const { getAccessToken, profile } = useUser();
   const { price } = useChalkPrice();
   const [player, setPlayer] = useState('');
@@ -62,6 +63,7 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const [stat, setStat] = useState('points');
   const [averages, setAverages] = useState<SeasonAverages | null>(null);
+  const [liveStats, setLiveStats] = useState<Record<string, number> | null>(null);
   const [target, setTarget] = useState('');
   const [direction, setDirection] = useState<'over' | 'under'>('over');
   const [stake, setStake] = useState('');
@@ -69,6 +71,25 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
   const [oddsMode, setOddsMode] = useState<'american' | 'percent'>('american');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch live stats for selected player when game is live
+  useEffect(() => {
+    if (!gameLive || !player) { setLiveStats(null); return; }
+    fetch(`/api/bets/live-stats?gameId=${gameId}&sport=${sport || 'nba'}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const stats = data.stats ?? {};
+        const key = player.toLowerCase();
+        if (stats[key]) { setLiveStats(stats[key]); return; }
+        // Try last name match
+        const lastName = key.split(' ').pop() || '';
+        for (const [name, s] of Object.entries(stats)) {
+          if (name.split(' ').pop() === lastName) { setLiveStats(s as Record<string, number>); return; }
+        }
+        setLiveStats(null);
+      })
+      .catch(() => setLiveStats(null));
+  }, [gameLive, player, gameId, sport]);
 
   // Fetch rosters for both teams
   useEffect(() => {
@@ -315,6 +336,26 @@ export function CreateBetModal({ gameId, gameTitle, teams, teamIds, sport, onClo
                 <span className="text-[10px]" style={{ color: 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)' }}>
                   {STATS.find((s) => s.value === stat)?.label?.toLowerCase() ?? stat} per game
                 </span>
+              </div>
+            )}
+
+            {/* Live stats hint */}
+            {gameLive && liveStats && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-[4px]"
+                style={{ background: 'rgba(93,232,138,0.04)', border: '1px dashed rgba(93,232,138,0.15)' }}
+              >
+                <span className="text-[8px] uppercase tracking-wider chalk-header" style={{ color: 'var(--color-green)' }}>LIVE</span>
+                {STATS.map((s) => {
+                  const val = liveStats[s.value];
+                  if (val == null) return null;
+                  const isSelected = s.value === stat;
+                  return (
+                    <span key={s.value} className="text-[10px] tabular-nums" style={{ color: isSelected ? 'var(--chalk-white)' : 'var(--chalk-ghost)', fontFamily: 'var(--font-chalk-body)', fontWeight: isSelected ? 700 : 400 }}>
+                      {val} <span style={{ fontSize: '8px', opacity: 0.7 }}>{s.label.slice(0, 3).toUpperCase()}</span>
+                    </span>
+                  );
+                })}
               </div>
             )}
 

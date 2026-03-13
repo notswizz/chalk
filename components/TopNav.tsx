@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { LoginButton } from '@/components/auth/LoginButton';
 import { ActivityModal } from '@/components/ActivityModal';
+import { InfoModal } from '@/components/InfoModal';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Games', match: (p: string) => p === '/' },
@@ -19,6 +20,7 @@ export function TopNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   return (
     <>
@@ -92,6 +94,21 @@ export function TopNav() {
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
           </button>
+
+          {/* Info */}
+          <button
+            onClick={() => setInfoOpen(true)}
+            className="p-2 rounded-[4px] cursor-pointer transition-all duration-200 hover:scale-105"
+            style={{ color: 'var(--chalk-ghost)' }}
+            title="How it works"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
+
 
           <LoginButton />
 
@@ -194,6 +211,7 @@ export function TopNav() {
     </header>
 
     <ActivityModal open={activityOpen} onClose={() => setActivityOpen(false)} />
+    <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
     </>
   );
 }
