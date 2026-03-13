@@ -40,6 +40,16 @@ body {
   color: var(--chalk-white);
   font-family: var(--font-chalk-body), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  cursor: url('/cursor-chalk.png') 4 4, default !important;
+}
+
+*, *::before, *::after {
+  cursor: inherit !important;
+}
+
+a, button, [role="button"], input[type="submit"], select,
+[class*="cursor-pointer"], .cursor-pointer {
+  cursor: url('/cursor-chalk-yellow.png') 4 4, pointer !important;
 }
 
 /* ─── Chalkboard base + photo texture ─── */
