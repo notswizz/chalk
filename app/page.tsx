@@ -8,6 +8,7 @@ import { getFavorites } from '@/lib/favorites';
 import Link from 'next/link';
 import { TeamLogo } from '@/components/TeamLogo';
 import { useSport, setSport } from '@/components/SportSelector';
+import { useUser } from '@/hooks/useUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,7 @@ interface Clip {
 
 export default function HomePage() {
   const sport = useSport();
+  const { authenticated, login } = useUser();
   const [games, setGames] = useState<Game[]>([]);
   const [oddsMap, setOddsMap] = useState<Record<string, GameOdds>>({});
   const [volumeMap, setVolumeMap] = useState<Record<string, GameVolume>>({});
@@ -196,6 +198,20 @@ export default function HomePage() {
               {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
           </div>
+          {!authenticated && (
+            <button
+              onClick={login}
+              className="relative px-3 py-1.5 rounded-[4px] text-[11px] font-extrabold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, #e85d5d, #f5d960, #5de88a, #5db8e8, #b05de8)',
+                color: '#1a2a1a',
+                fontFamily: 'var(--font-chalk-header)',
+                textShadow: '0 1px 0 rgba(255,255,255,0.2)',
+              }}
+            >
+              Claim 500 $CHALK
+            </button>
+          )}
           <div className="flex items-center gap-2">
             {liveCount > 0 && (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider"
